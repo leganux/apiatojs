@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "An amazing and easy to use CRUD  constructors for API with mongo and mongoose",
   "main": "index.js",
+  "homepage": "htpps://leganux.net",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leganux/apiatojs.git"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,5 +16,16 @@
   "dependencies": {
     "moment": "^2.29.1",
     "mongoose": "^5.13.1"
-  }
+  },
+  "keywords": [
+    "CRUD",
+    "API",
+    "REST",
+    "AVIATO",
+    "PiedPiper",
+    "Microservices",
+    "Mongoose",
+    "express",
+    "datatables"
+  ]
 }
