@@ -1,0 +1,15 @@
+{
+  "name": "apiato",
+  "version": "1.0.0",
+  "description": "An amazing and easy to use CRUD  constructors for API with mongo and mongoose",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Angel Erick Cruz Olivera (leganux)",
+  "license": "MIT",
+  "dependencies": {
+    "moment": "^2.29.1",
+    "mongoose": "^5.13.1"
+  }
+}
