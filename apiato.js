@@ -1,7 +1,7 @@
-/** 
- *  ** APIATO ** 
- * 
- * A simple API basic generator for expressjs and mongoose to easy implement Rest API´s 
+/**
+ *  ** APIATO **
+ *
+ * A simple API basic generator for expressjs and mongoose to easy implement Rest API´s
  * quering by front end or API gateway
  */
 
@@ -660,8 +660,6 @@ let apiato = function (options) {
 
         }
     }
-
-
 
 
     /** This function helps  to get an element by id from  collection and updating if exist */
