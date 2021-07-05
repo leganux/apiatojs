@@ -234,7 +234,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: val.trim(), options: 'i' };
+                        find[key] = { $regex: val.trim(), $options: 'i' };
                     }
                 }
                 if (where) {
@@ -595,7 +595,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: val.trim(), options: 'i' };
+                        find[key] = { $regex: val.trim(), $options: 'i' };
                     }
                 }
                 if (where) {
