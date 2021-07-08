@@ -1,6 +1,6 @@
 {
   "name": "apiato",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "An amazing and easy to use CRUD  constructors for API with mongo and mongoose",
   "main": "index.js",
   "homepage": "htpps://leganux.net",
