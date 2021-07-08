@@ -20,10 +20,12 @@ let ObjectId = mongoose.Types.ObjectId
 let populateConstructor = function (query, populate, populationObject) {
     /** Fragmento que busca y construye el objeto de retorno  populado*/
 
+    console.log('POPULATION!!!!', populate, populationObject)
+
     if (populate && populationObject) {
-        if (typeof populate == "boolean") {
+        if ((typeof populate == "boolean" || typeof populate == "number") && eval(populate) == true) {
             for (var [key, value] of Object.entries(populationObject)) {
-                query = query.populate({
+                query.populate({
                     path: key,
                     model: value
                 })
