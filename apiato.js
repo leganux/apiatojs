@@ -67,6 +67,24 @@ let selectConstructor = function (query, select) {
 
 }
 
+let whereConstructor = function (where) {
+
+    if (where) {
+        for (const [key, val] of Object.entries(where)) {
+            if (Number(val)) {
+                where[key] = Number(val)
+                continue
+            }
+            if (typeof val == 'boolean' || val == 'true' || val == 'false') {
+                where[key] = Boolean(val)
+                continue
+            }
+        }
+    }
+
+    return where
+}
+
 /** Here we define the apiato constructor */
 let apiato = function (options) {
 
@@ -208,6 +226,13 @@ let apiato = function (options) {
     /** This function helps  to get many elements from  collection*/
     this.getMany = function (model_, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
             try {
 
 
@@ -219,13 +244,8 @@ let apiato = function (options) {
                 let { where, whereObject, like, select, paginate, sort, populate } = req.query;
 
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
+                where = whereConstructor(where)
+                like = whereConstructor(like)
 
                 let mongooseOptions = {}
 
@@ -236,7 +256,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: val.trim(), $options: 'i' };
+                        find[key] = { $regex: String(val).trim(), $options: 'i' };
                     }
                 }
                 if (where) {
@@ -377,23 +397,26 @@ let apiato = function (options) {
 
                 let { where, like, whereObject, select, populate } = req.query;
 
+                where = whereConstructor(where)
+                like = whereConstructor(like)
+
                 var response = {};
 
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: val.trim(), $options: 'i' };
+                        find[key] = { $regex: String(val).trim(), $options: 'i' };
                     }
                 }
 
                 if (where) {
                     for (const [key, val] of Object.entries(where)) {
-                        find[key] = val.trim();
+                        find[key] = val;
                     }
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val.trim());
+                        find[key] = ObjectId(String(val).trim());
                     }
                 }
 
@@ -458,6 +481,9 @@ let apiato = function (options) {
                 let data = req.body;
                 let { populate, select, where, whereObject } = req.query;
 
+                where = whereConstructor(where)
+
+
                 var response = {
                     error: '',
                     success: false,
@@ -477,12 +503,12 @@ let apiato = function (options) {
 
                 if (where) {
                     for (const [key, val] of Object.entries(where)) {
-                        find[key] = val.trim();
+                        find[key] = val;
                     }
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val.trim());
+                        find[key] = ObjectId(String(val).trim());
                     }
                 }
 
@@ -569,6 +595,9 @@ let apiato = function (options) {
                 let data = req.body;
                 let { populate, select, where, whereObject, like } = req.query;
 
+                where = whereConstructor(where)
+                like = whereConstructor(like)
+
                 var response = {
                     error: '',
                     success: false,
@@ -597,7 +626,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: val.trim(), $options: 'i' };
+                        find[key] = { $regex: String(val).trim(), $options: 'i' };
                     }
                 }
                 if (where) {
