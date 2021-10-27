@@ -8,8 +8,6 @@
 'use strict'
 
 
-
-
 let moment = require('moment');
 let objectValidatorHelper = require('./validator')
 var mongoose = require('mongoose');
@@ -23,7 +21,7 @@ let populateConstructor = function (query, populate, populationObject) {
     //console.log('POPULATION!!!!', populate, populationObject)
 
     if (populate && populationObject) {
-        if ((typeof populate == "boolean" || typeof populate == "number") && eval(populate) == true) {
+        if ((typeof populate == "boolean" || typeof populate == "number") && (eval(populate) == true || populate == 1)) {
             for (var [key, value] of Object.entries(populationObject)) {
                 query.populate({
                     path: key,
@@ -91,6 +89,14 @@ let apiato = function (options) {
     /** This function helps  to create  a new element in model*/
     this.createOne = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
+
             try {
 
                 /**  Execute and process body before create new element */
@@ -98,16 +104,9 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { body } = req;
-                let { populate, select } = req.query;
+                let {body} = req;
+                let {populate, select} = req.query;
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let validation = objectValidatorHelper.validateObject(body, validationObject, true);
 
@@ -158,6 +157,13 @@ let apiato = function (options) {
     /** This function helps  to create  a new elements in model*/
     this.createMany = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
             try {
 
                 /**  Execute and process body before create new element */
@@ -165,16 +171,9 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { body } = req;
-                let { populate, select } = req.query;
+                let {body} = req;
+                let {populate, select} = req.query;
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let validationErrors = []
                 let correct = []
@@ -191,8 +190,10 @@ let apiato = function (options) {
                 }
 
                 let newElement = await model_.insertMany(correct);
-                newElement = newElement.map(item => { return item._id })
-                let query = model_.find({ _id: { $in: newElement } })
+                newElement = newElement.map(item => {
+                    return item._id
+                })
+                let query = model_.find({_id: {$in: newElement}})
                 populateConstructor(query, populate, populationObject)
                 selectConstructor(query, select)
                 newElement = await query.exec()
@@ -241,7 +242,7 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { where, whereObject, like, select, paginate, sort, populate } = req.query;
+                let {where, whereObject, like, select, paginate, sort, populate} = req.query;
 
 
                 where = whereConstructor(where)
@@ -256,7 +257,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = {$regex: String(val).trim(), $options: 'i'};
                     }
                 }
                 if (where) {
@@ -321,7 +322,15 @@ let apiato = function (options) {
 
     /** This function helps  to get an element by id from  collection*/
     this.getOneById = function (model_, populationObject, options, fIn_, fOut_) {
+
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
             try {
 
                 /**  Execute and process body before create new element */
@@ -329,16 +338,9 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { id } = req.params;
-                let { populate, select } = req.query;
+                let {id} = req.params;
+                let {populate, select} = req.query;
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let mongooseOptions = {}
 
@@ -387,6 +389,14 @@ let apiato = function (options) {
 
     /** This function helps  to get an element by filtering parameters using where object from  collection*/
     this.getOneWhere = function (model_, populationObject, options, fIn_, fOut_) {
+        var response = {
+            error: '',
+            success: false,
+            message: '',
+            code: 0,
+            data: {}
+        };
+
         return async function (req, res) {
             try {
 
@@ -395,17 +405,16 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { where, like, whereObject, select, populate } = req.query;
+                let {where, like, whereObject, select, populate} = req.query;
 
                 where = whereConstructor(where)
                 like = whereConstructor(like)
 
-                var response = {};
 
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = {$regex: String(val).trim(), $options: 'i'};
                     }
                 }
 
@@ -471,6 +480,15 @@ let apiato = function (options) {
     /** This function helps  to get an element by filtering parameters using where object from  collection and updating if exist or create if not exist*/
     this.findUpdateOrCreate = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
+
             try {
 
                 /**  Execute and process body before create new element */
@@ -479,18 +497,10 @@ let apiato = function (options) {
                 }
 
                 let data = req.body;
-                let { populate, select, where, whereObject } = req.query;
+                let {populate, select, where, whereObject} = req.query;
 
                 where = whereConstructor(where)
 
-
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let mongooseOptions = {}
 
@@ -511,8 +521,6 @@ let apiato = function (options) {
                         find[key] = ObjectId(String(val).trim());
                     }
                 }
-
-
 
 
                 let newElement = await model_.findOne(find, mongooseOptions);
@@ -585,6 +593,14 @@ let apiato = function (options) {
     /** This function helps  to get an element by filtering parameters using where object from  collection and updating if exist */
     this.findUpdate = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
             try {
 
                 /**  Execute and process body before create new element */
@@ -593,18 +609,11 @@ let apiato = function (options) {
                 }
 
                 let data = req.body;
-                let { populate, select, where, whereObject, like } = req.query;
+                let {populate, select, where, whereObject, like} = req.query;
 
                 where = whereConstructor(where)
                 like = whereConstructor(like)
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let mongooseOptions = {}
 
@@ -626,7 +635,7 @@ let apiato = function (options) {
                 var find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = {$regex: String(val).trim(), $options: 'i'};
                     }
                 }
                 if (where) {
@@ -696,6 +705,13 @@ let apiato = function (options) {
     /** This function helps  to get an element by id from  collection and updating if exist */
     this.updateById = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
 
             try {
                 /**  Execute and process body before create new element */
@@ -703,17 +719,10 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { params, body } = req;
-                let { id } = params;
-                let { populate, select } = req.query;
+                let {params, body} = req;
+                let {id} = params;
+                let {populate, select} = req.query;
 
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
 
                 let mongooseOptions = {}
 
@@ -736,7 +745,7 @@ let apiato = function (options) {
                     body[updateFieldName] = moment().format()
                 }
 
-                let element = await model_.findByIdAndUpdate(id, { $set: body }, mongooseOptions);
+                let element = await model_.findByIdAndUpdate(id, {$set: body}, mongooseOptions);
 
                 if (!element) {
                     response.error = '404 not found'
@@ -782,6 +791,13 @@ let apiato = function (options) {
     /** This function helps  to delete an element by id */
     this.findIdAndDelete = function (model_, options, fIn_, fOut_) {
         return async function (req, res) {
+            var response = {
+                error: '',
+                success: false,
+                message: '',
+                code: 0,
+                data: {}
+            };
             try {
                 /**  Execute and process body before create new element */
                 if (fIn_ && typeof (fIn_) == 'function') {
@@ -789,13 +805,7 @@ let apiato = function (options) {
                 }
 
                 var id = req.params.id;
-                var response = {
-                    error: '',
-                    success: false,
-                    message: '',
-                    code: 0,
-                    data: {}
-                };
+
                 let newElement = await model_.findByIdAndRemove(id);
 
                 if (!newElement) {
@@ -833,6 +843,7 @@ let apiato = function (options) {
 
     /** This function helps  to manage content using  mongoose-datatables-fork */
     this.datatable = function (model_, populationObject, search_fields, fIn_, fOut_) {
+
         return async function (req, res) {
             try {
 
@@ -841,7 +852,7 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                let { populate } = req.query
+                let {populate} = req.query
 
                 var order = {};
                 if (req.body.columns && req.body.order) {
@@ -871,27 +882,30 @@ let apiato = function (options) {
                     }
                 }
 
-                let objPopulate = {}
+                let objPopulate = []
+
                 if (populate) {
-                    if (typeof populate == "boolean") {
+                    if (typeof populate == "boolean" || populate == "true" || populate == 1) {
+                        console.log('a')
                         for (var [key, value] of Object.entries(populationObject)) {
-                            objPopulate.push({
-                                path: key,
-                                model: value
-                            })
+                            objPopulate.push(
+                                key
+                            )
                         }
                     }
                     if (typeof populate == "object") {
+                        console.log('b')
                         for (var [key, value] of Object.entries(populate)) {
                             if (value && populationObject[key]) {
-                                objPopulate.push({
-                                    path: key,
-                                    model: populationObject[key]
-                                })
+                                objPopulate.push(
+                                    key
+                                )
                             }
 
                         }
                     }
+                } else {
+                    objPopulate = false
                 }
 
 
@@ -919,6 +933,7 @@ let apiato = function (options) {
                     throw e
                 })
             } catch (e) {
+                let response = {}
                 response.error = e
                 response.success = false
                 response.message = e
@@ -931,7 +946,6 @@ let apiato = function (options) {
         }
     }
 }
-
 
 
 module.exports = apiato;
