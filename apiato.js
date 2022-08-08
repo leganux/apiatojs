@@ -21,7 +21,7 @@ let populateConstructor = function (query, populate, populationObject) {
     //console.log('POPULATION!!!!', populate, populationObject)
 
     if (populate && populationObject) {
-        if ((typeof populate == "boolean" || typeof populate == "number") && (eval(populate) == true || populate == 1)) {
+        if ((typeof populate == "boolean" || typeof populate == "number" || typeof populate == "string") && (Boolean(populate) == true || populate == 1)) {
             for (var [key, value] of Object.entries(populationObject)) {
                 query.populate({
                     path: key,
