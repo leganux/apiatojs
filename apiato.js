@@ -10,7 +10,7 @@
 
 let moment = require('moment');
 let objectValidatorHelper = require('./validator')
-var mongoose = require('mongoose');
+let mongoose = require('mongoose');
 let ObjectId = mongoose.Types.ObjectId
 
 
@@ -22,7 +22,7 @@ let populateConstructor = function (query, populate, populationObject) {
 
     if (populate && populationObject) {
         if ((typeof populate == "boolean" || typeof populate == "number" || typeof populate == "string") && (Boolean(populate) == true || populate == 1)) {
-            for (var [key, value] of Object.entries(populationObject)) {
+            for (let [key, value] of Object.entries(populationObject)) {
                 query.populate({
                     path: key,
                     model: value
@@ -30,7 +30,7 @@ let populateConstructor = function (query, populate, populationObject) {
             }
         }
         if (typeof populate == "object") {
-            for (var [key, value] of Object.entries(populate)) {
+            for (let [key, value] of Object.entries(populate)) {
                 if (value && populationObject[key]) {
                     query.populate({
                         path: key,
@@ -89,7 +89,7 @@ let apiato = function (options) {
     /** This function helps  to create  a new element in model*/
     this.createOne = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -157,7 +157,7 @@ let apiato = function (options) {
     /** This function helps  to create  a new elements in model*/
     this.createMany = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -174,6 +174,18 @@ let apiato = function (options) {
                 let {body} = req;
                 let {populate, select} = req.query;
 
+
+                if (body && typeof body == 'object' && !Array.isArray(body)) {
+                    let arr = []
+                    console.info('An object was recieved instead an array, trying make the convertion ')
+                    for (let [key, value] of Object.entries(body)) {
+                        value._key_ = key
+                        arr.push(value)
+
+                    }
+                    body = arr
+                    console.info('A generated array is', body)
+                }
 
                 let validationErrors = []
                 let correct = []
@@ -227,7 +239,7 @@ let apiato = function (options) {
     /** This function helps  to get many elements from  collection*/
     this.getMany = function (model_, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -254,7 +266,7 @@ let apiato = function (options) {
                     mongooseOptions = options?.mongooseOptions
                 }
 
-                var find = {};
+                let find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
                         find[key] = {$regex: String(val).trim(), $options: 'i'};
@@ -324,7 +336,7 @@ let apiato = function (options) {
     this.getOneById = function (model_, populationObject, options, fIn_, fOut_) {
 
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -389,7 +401,7 @@ let apiato = function (options) {
 
     /** This function helps  to get an element by filtering parameters using where object from  collection*/
     this.getOneWhere = function (model_, populationObject, options, fIn_, fOut_) {
-        var response = {
+        let response = {
             error: '',
             success: false,
             message: '',
@@ -411,7 +423,7 @@ let apiato = function (options) {
                 like = whereConstructor(like)
 
 
-                var find = {};
+                let find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
                         find[key] = {$regex: String(val).trim(), $options: 'i'};
@@ -481,7 +493,7 @@ let apiato = function (options) {
     this.findUpdateOrCreate = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
 
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -508,7 +520,7 @@ let apiato = function (options) {
                     mongooseOptions = options?.mongooseOptions
                 }
 
-                var find = {};
+                let find = {};
 
 
                 if (where) {
@@ -549,7 +561,7 @@ let apiato = function (options) {
                     }
                 }
 
-                for (var [key, value] of Object.entries(data)) {
+                for (let [key, value] of Object.entries(data)) {
                     newElement[key] = value
                 }
 
@@ -594,7 +606,7 @@ let apiato = function (options) {
     this.findUpdate = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
 
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -632,7 +644,7 @@ let apiato = function (options) {
                     return false
                 }
 
-                var find = {};
+                let find = {};
                 if (like) {
                     for (const [key, val] of Object.entries(like)) {
                         find[key] = {$regex: String(val).trim(), $options: 'i'};
@@ -660,7 +672,7 @@ let apiato = function (options) {
                     return false
                 }
 
-                for (var [key, value] of Object.entries(data)) {
+                for (let [key, value] of Object.entries(data)) {
                     newElement[key] = value
                 }
 
@@ -705,7 +717,7 @@ let apiato = function (options) {
     /** This function helps  to get an element by id from  collection and updating if exist */
     this.updateById = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -791,7 +803,7 @@ let apiato = function (options) {
     /** This function helps  to delete an element by id */
     this.findIdAndDelete = function (model_, options, fIn_, fOut_) {
         return async function (req, res) {
-            var response = {
+            let response = {
                 error: '',
                 success: false,
                 message: '',
@@ -804,7 +816,7 @@ let apiato = function (options) {
                     req = await fIn_(req)
                 }
 
-                var id = req.params.id;
+                let id = req.params.id;
 
                 let newElement = await model_.findByIdAndRemove(id);
 
@@ -854,15 +866,15 @@ let apiato = function (options) {
 
                 let {populate} = req.query
 
-                var order = {};
+                let order = {};
                 if (req.body.columns && req.body.order) {
                     req.body.order.map((item, i) => {
-                        var name = req.body.columns[item.column].data;
-                        var dir = item.dir;
+                        let name = req.body.columns[item.column].data;
+                        let dir = item.dir;
                         order[name] = dir;
                     });
                 }
-                var fields = []
+                let fields = []
                 if (search_fields) {
                     if (typeof search_fields == 'string' && search_fields != '') {
                         fields = search_fields.split(',')
@@ -873,9 +885,9 @@ let apiato = function (options) {
                 }
 
 
-                var find = {};
+                let find = {};
                 if (req.body && req.body.filter && typeof (req.body.filter) == 'object') {
-                    for (var [key, value] of Object.entries(req.body.filter)) {
+                    for (let [key, value] of Object.entries(req.body.filter)) {
                         if (value && value !== '-1') {
                             find[key] = value
                         }
@@ -887,7 +899,7 @@ let apiato = function (options) {
                 if (populate) {
                     if (typeof populate == "boolean" || populate == "true" || populate == 1) {
                         console.log('a')
-                        for (var [key, value] of Object.entries(populationObject)) {
+                        for (let [key, value] of Object.entries(populationObject)) {
                             objPopulate.push(
                                 key
                             )
@@ -895,7 +907,7 @@ let apiato = function (options) {
                     }
                     if (typeof populate == "object") {
                         console.log('b')
-                        for (var [key, value] of Object.entries(populate)) {
+                        for (let [key, value] of Object.entries(populate)) {
                             if (value && populationObject[key]) {
                                 objPopulate.push(
                                     key
