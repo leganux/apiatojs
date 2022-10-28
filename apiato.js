@@ -91,7 +91,7 @@ let apiato = function (options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.1.4
+                        (c) leganux.net 2021-2022  v1.1.5
 `)
 
     /** This function helps  to create  a new element in model*/
@@ -970,7 +970,7 @@ let apiato = function (options) {
 
 
     /** This function helps  to get datable data format  using an agreggation */
-    this.datatable_aggregate = function (model_, pipeline=[], search_fields, options = {
+    this.datatable_aggregate = function (model_, pipeline = [], search_fields, options = {
         allowDiskUse: true,
         search_by_field: false
     }, fIn_, fOut_) {
@@ -987,12 +987,15 @@ let apiato = function (options) {
                     data: {}
                 };
 
+                let body = req.body
+
                 /**  Execute and process body before create new element */
                 if (fIn_ && typeof (fIn_) == 'function') {
                     req = await fIn_(req)
                 }
 
                 let {where, whereObject, like} = req.body
+
 
                 let order = {};
                 let search_columns_or = []
@@ -1002,7 +1005,7 @@ let apiato = function (options) {
                         let name = req.body.columns[item.column].data;
                         let search = (req.body.columns[item.column]?.search?.value) || '';
                         let dir = item.dir;
-                        order[name] = dir;
+                        order[name] = dir.toUpperCase() == 'DESC' ? -1 : 1;
 
                         if (search !== "" && options.search_by_field) {
                             let inner = {}
@@ -1065,29 +1068,39 @@ let apiato = function (options) {
 
                 let table = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
                 let total = table.length
+                console.log('total', total)
 
-                pipeline.push({
-                    $skip: body.start
+                let pipeline2 = [...pipeline]
+
+                pipeline2.push({
+                    $skip: Number(body?.start || 0)
                 })
-                pipeline.push({
-                    $limit: body.length
+                pipeline2.push({
+                    $limit: Number(body?.length || 0)
                 })
 
-                console.log('Pipeline', JSON.stringify(pipeline))
+                pipeline2.push({
+                    $sort: order
+                })
 
-                let table2 = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
+
+                let table2 = await model_.aggregate(pipeline2).allowDiskUse(options.allowDiskUse)
 
 
                 if (fOut_ && typeof (fOut_) == 'function') {
-                    table = await fOut_(table2)
+                    table2 = await fOut_(table2)
                 }
 
-                response.data = table
+                response.data = table2
                 response.recordsTotal = total
                 response.recordsFiltered = total
                 response.total = total
 
+                console.log('Pipeline', JSON.stringify(pipeline2))
                 res.status(200).json(response)
+
+                pipeline2 = []
+                pipeline = []
 
             } catch (e) {
                 let response = {}
