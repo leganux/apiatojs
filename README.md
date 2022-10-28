@@ -36,6 +36,7 @@ In APIATO you can use any of the following functions independently or simultaneo
 * PUT: updateById (Find an item by ID and edit it)
 * DELETE: findIdAndDelete (Find an item by ID and delete it)
 * POST: datatable (support for mongoose-datatables-fork plugin)
+* POST: datatable_aggregate (Call data from aggregation and returns to datatable format)
 
 And this is not all within those functions and through parameters that can be sent mainly in the query of the URL you
 can.
@@ -136,6 +137,8 @@ let optionsEmployee = {}
 
 // routes definition using express and APIATO
 
+let aggregate_pipeline = []
+
 
 app.post('/api/employee', ms_employee.createOne(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
 app.post('/api/employee/many', ms_employee.createMany(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
@@ -150,7 +153,8 @@ app.put('/api/employee/:id', ms_employee.updateById(employeeModel, employeeValid
 
 app.delete('/api/employee/:id', ms_employee.findIdAndDelete(employeeModel, optionsEmployee))
 
-app.post('/api/employee', ms_employee.datatable(employeeModel, populationObjectEmployee, ''))
+app.post('/api/employee/datatble', ms_employee.datatable(employeeModel, populationObjectEmployee, ''))
+app.post('/api/employee/dt_agr', ms_employee.datatable_aggregate(employeeModel, aggregate_pipeline, ''))
 
 ```
 
@@ -201,6 +205,8 @@ app.get('/', function (req, res) {
     res.status(200).json({ok: 'ok'})
 })
 
+let aggregate_pipeline = []
+
 app.post('/api/employee', ms_employee.createOne(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
 app.post('/api/employee/many', ms_employee.createMany(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
 app.get('/api/employee/one', ms_employee.getOneWhere(employeeModel, populationObjectEmployee, optionsEmployee))
@@ -210,10 +216,11 @@ app.put('/api/employee/find_update_or_create', ms_employee.findUpdateOrCreate(em
 app.put('/api/employee/find_where_and_update', ms_employee.findUpdate(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
 app.put('/api/employee/:id', ms_employee.updateById(employeeModel, employeeValidationObject, populationObjectEmployee, optionsEmployee))
 app.delete('/api/employee/:id', ms_employee.findIdAndDelete(employeeModel, optionsEmployee))
-app.post('/api/employee', ms_employee.datatable(employeeModel, populationObjectEmployee, ''))
+app.post('/api/employee/datatble', ms_employee.datatable(employeeModel, populationObjectEmployee, ''))
+app.post('/api/employee/dt_agr', ms_employee.datatable_aggregate(employeeModel, aggregate_pipeline, ''))
 
 app.listen(3000, () => {
-  console.log("El servidor está inicializado en el puerto 3000");
+    console.log("El servidor está inicializado en el puerto 3000");
 });
 ```
 
@@ -238,8 +245,8 @@ app.listen(3000, () => {
 
 * body(Object): The object will be stored in collection
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
 
 **Fetch request example**
 
@@ -248,22 +255,22 @@ var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/json");
 
 var raw = JSON.stringify({
-  "name": "Erlich Bachman",
-  "age": 38,
-  "location": "Palo Alto C.A."
+    "name": "Erlich Bachman",
+    "age": 38,
+    "location": "Palo Alto C.A."
 });
 
 var requestOptions = {
-  method: 'POST',
-  headers: myHeaders,
-  body: raw,
-  redirect: 'follow'
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -300,8 +307,8 @@ fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", reques
 
 * body(Object): The array of objects will be stored in collection
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
 
 **Fetch request example**
 
@@ -310,26 +317,26 @@ var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/json");
 
 var raw = JSON.stringify([{
-  "name": "Erlich Bachman",
-  "age": 38,
-  "location": "Palo Alto C.A."
+    "name": "Erlich Bachman",
+    "age": 38,
+    "location": "Palo Alto C.A."
 }, {
-  "name": "Dinesh",
-  "age": 28,
-  "location": "Palo Alto C.A."
+    "name": "Dinesh",
+    "age": 28,
+    "location": "Palo Alto C.A."
 }]);
 
 var requestOptions = {
-  method: 'POST',
-  headers: myHeaders,
-  body: raw,
-  redirect: 'follow'
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -372,26 +379,27 @@ fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", reques
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
-  * sort(Object):Object that defines the fields will be used for order results 'DESC' for descending or 'ASC' ascending
-  * paginate(Object):Object with 2 properties 'page' and limit, defines the number of results to return and page
-  * where(Object):Object filter to exactly match in find query for values
-  * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
-  * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * sort(Object):Object that defines the fields will be used for order results 'DESC' for descending or 'ASC'
+      ascending
+    * paginate(Object):Object with 2 properties 'page' and limit, defines the number of results to return and page
+    * where(Object):Object filter to exactly match in find query for values
+    * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
+    * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
 
 **Fetch request example**
 
 ```javascript
 var requestOptions = {
-  method: 'GET',
-  redirect: 'follow'
+    method: 'GET',
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/?paginate[page]=2&paginate[limit]=3&sort[name]=ASC&select[name]=1", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -436,25 +444,26 @@ fetch("http://localhost:3000/api/employee/?paginate[page]=2&paginate[limit]=3&so
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
-  * sort(Object):Object that defines the fields will be used for order results 'DESC' for descending or 'ASC' ascending
-  * where(Object):Object filter to exactly match in find query for values
-  * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
-  * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * sort(Object):Object that defines the fields will be used for order results 'DESC' for descending or 'ASC'
+      ascending
+    * where(Object):Object filter to exactly match in find query for values
+    * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
+    * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
 
 **Fetch request example**
 
 ```javascript
 var requestOptions = {
-  method: 'GET',
-  redirect: 'follow'
+    method: 'GET',
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/one?like[name]=Jared", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -492,21 +501,21 @@ fetch("http://localhost:3000/api/employee/one?like[name]=Jared", requestOptions)
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
 
 **Fetch request example**
 
 ```javascript
 var requestOptions = {
-  method: 'GET',
-  redirect: 'follow'
+    method: 'GET',
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/60e0f5ef37eb110f8c2b5768", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -547,10 +556,10 @@ fetch("http://localhost:3000/api/employee/60e0f5ef37eb110f8c2b5768", requestOpti
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
-  * where(Object):Object filter to exactly match in find query for values
-  * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * where(Object):Object filter to exactly match in find query for values
+    * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
 
 **Fetch request example**
 
@@ -559,22 +568,22 @@ var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/json");
 
 var raw = JSON.stringify({
-  "name": "Erlich Bachmanity",
-  "age": 40,
-  "location": "Palo Alto C.A."
+    "name": "Erlich Bachmanity",
+    "age": 40,
+    "location": "Palo Alto C.A."
 });
 
 var requestOptions = {
-  method: 'PUT',
-  headers: myHeaders,
-  body: raw,
-  redirect: 'follow'
+    method: 'PUT',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/find_update_or_create?where[name]=Erlich Bachmanity", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 
 ```
 
@@ -615,11 +624,11 @@ fetch("http://localhost:3000/api/employee/find_update_or_create?where[name]=Erli
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
-  * where(Object):Object filter to exactly match in find query for values
-  * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
-  * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * where(Object):Object filter to exactly match in find query for values
+    * whereObject(Object):Object filter to exactly match in find query for mongoose objectIDs
+    * like(Object):Object filter to regex match in find query for values %LIKE% equivalent
 
 **Fetch request example**
 
@@ -628,22 +637,22 @@ var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/json");
 
 var raw = JSON.stringify({
-  "name": "Erlich BachmanityX",
-  "age": 40,
-  "location": "Palo Alto C.A."
+    "name": "Erlich BachmanityX",
+    "age": 40,
+    "location": "Palo Alto C.A."
 });
 
 var requestOptions = {
-  method: 'PUT',
-  headers: myHeaders,
-  body: raw,
-  redirect: 'follow'
+    method: 'PUT',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/find_where_and_update?where[name]=Erlich Bachmanity", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 ```
 
 **Example fetch response**
@@ -680,8 +689,8 @@ fetch("http://localhost:3000/api/employee/find_where_and_update?where[name]=Erli
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * populate(Object): Object that defines parameters will return populated
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+    * populate(Object): Object that defines parameters will return populated
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
 
 **Fetch request example**
 
@@ -690,22 +699,22 @@ var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/json");
 
 var raw = JSON.stringify({
-  "name": "Erlich Bachman!!",
-  "age": 50,
-  "location": "Huston TX"
+    "name": "Erlich Bachman!!",
+    "age": 50,
+    "location": "Huston TX"
 });
 
 var requestOptions = {
-  method: 'PUT',
-  headers: myHeaders,
-  body: raw,
-  redirect: 'follow'
+    method: 'PUT',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 ```
 
 **Example fetch response**
@@ -743,14 +752,61 @@ fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOpti
 
 ```javascript
 var requestOptions = {
-  method: 'DELETE',
-  redirect: 'follow'
+    method: 'DELETE',
+    redirect: 'follow'
 };
 
 fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOptions)
-        .then(response => response.text())
-        .then(result => console.log(result))
-        .catch(error => console.log('error', error));
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+```
+
+**Example fetch response**
+
+```json
+{
+  "error": {},
+  "success": true,
+  "message": "ok",
+  "code": 200,
+  "data": {
+    "_id": "60e243c82b4d320571d00639",
+    "name": "Erlich Bachman!!",
+    "age": 50,
+    "location": "Huston TX",
+    "__v": 0
+  }
+}
+```
+
+
+### *POST:datatable_aggregate_
+
+**Method Parameters**
+
+* model(mongoose class):[mandatory] The moongose model object
+* pipeline(agreggation pipeline):[optional] The mongodb pipeline aggregation
+* search_fields (columns where datatble find):[optional] Array of search fields
+* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (allowDiskUsage:default=true search_by_field:default=false )
+* fIn_(function): [optional] Async function that can be executed before process recieve and must to return Express 'res'
+  object.
+* fOut_(function): [optional] Async function that can be executed after process recieve and must to return mongoose
+  query result.
+
+**Request Parameters**
+
+**Fetch request example**
+
+```javascript
+var requestOptions = {
+    method: 'POST',
+};
+
+fetch("http://localhost:3000/api/dt_agr", requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 ```
 
 **Example fetch response**
@@ -809,10 +865,10 @@ fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOpti
 
 ```javascript
 let options = {
-  "customValidationCode": 450, //default 435
-  "customErrorCode": 600, //default 500
-  "customNotFoundCode": 420, //default 404
-  "mongooseOptions": {}, //bypass mongoose options
+    "customValidationCode": 450, //default 435
+    "customErrorCode": 600, //default 500
+    "customNotFoundCode": 420, //default 404
+    "mongooseOptions": {}, //bypass mongoose options
 
 }
 ```
@@ -821,7 +877,7 @@ let options = {
 
 ```javascript
 let populationObject = {
-  user: userModel // defines the path and mongoose model -> Path:user, Model: userModel
+    user: userModel // defines the path and mongoose model -> Path:user, Model: userModel
 }
 ```
 
@@ -829,9 +885,9 @@ let populationObject = {
 
 ```javascript
 let validationObject = {
-  name: 'string,mandatory',
-  age: 'number,mandatory',
-  regDate: 'date',
+    name: 'string,mandatory',
+    age: 'number,mandatory',
+    regDate: 'date',
 }
 ```
 
@@ -847,8 +903,8 @@ equal to
 
 ```javascript
 let where = {
-  name: 'erick',
-  age: 30
+    name: 'erick',
+    age: 30
 }
 ```
 
@@ -862,7 +918,7 @@ equal to
 
 ```javascript
 let whereObject = {
-  user_id: ObjectId('60e243c82b4d320571d00639'),
+    user_id: ObjectId('60e243c82b4d320571d00639'),
 }
 ```
 
@@ -876,7 +932,7 @@ equal to
 
 ```javascript
 let like = {
-  name: {$regex: 'eri', $options: 'i'},
+    name: {$regex: 'eri', $options: 'i'},
 }
 ```
 
@@ -890,8 +946,8 @@ equal to
 
 ```javascript
 let paginate = {
-  page: 1,
-  limit: 10
+    page: 1,
+    limit: 10
 }
 ```
 
@@ -905,8 +961,8 @@ equal to
 
 ```javascript
 let sort = {
-  name: "DESC",
-  age: "ASC"
+    name: "DESC",
+    age: "ASC"
 }
 ```
 
@@ -920,9 +976,9 @@ equal to
 
 ```javascript
 let select = {
-  name: 1,
-  age: 1,
-  location: 0,
+    name: 1,
+    age: 1,
+    location: 0,
 }
 ```
 
@@ -936,9 +992,9 @@ equal to
 
 ```javascript
 let populate = {
-  class: 1,
-  kind: 1,
-  users: 0,
+    class: 1,
+    kind: 1,
+    users: 0,
 }
 ```
 

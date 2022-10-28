@@ -86,6 +86,14 @@ let whereConstructor = function (where) {
 /** Here we define the apiato constructor */
 let apiato = function (options) {
 
+    console.log(`
+     __   ____  __   __  ____  __       __  ____ 
+ / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
+/    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
+\\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
+                        (c) leganux.net 2021-2022  v1.1.4
+`)
+
     /** This function helps  to create  a new element in model*/
     this.createOne = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
         return async function (req, res) {
@@ -854,11 +862,13 @@ let apiato = function (options) {
     }
 
     /** This function helps  to manage content using  mongoose-datatables-fork */
+
     this.datatable = function (model_, populationObject, search_fields, fIn_, fOut_) {
 
         return async function (req, res) {
             try {
 
+                console.log('BODY ', JSON.stringify(req.body))
                 /**  Execute and process body before create new element */
                 if (fIn_ && typeof (fIn_) == 'function') {
                     req = await fIn_(req)
@@ -944,6 +954,141 @@ let apiato = function (options) {
                 }).catch(async function (e) {
                     throw e
                 })
+            } catch (e) {
+                let response = {}
+                response.error = e
+                response.success = false
+                response.message = e
+                response.code = options && options.customErrorCode ? options.customErrorCode : 500
+                response.data = {}
+                res.status(options && options.customErrorCode ? options.customErrorCode : 500).json(response)
+                throw e
+            }
+
+        }
+    }
+
+
+    /** This function helps  to get datable data format  using an agreggation */
+    this.datatable_aggregate = function (model_, pipeline=[], search_fields, options = {
+        allowDiskUse: true,
+        search_by_field: false
+    }, fIn_, fOut_) {
+
+        return async function (req, res) {
+            try {
+
+                let response = {
+                    message: 'OK',
+                    recordsFiltered: 0,
+                    recordsTotal: 0,
+                    total: 0,
+                    success: true,
+                    data: {}
+                };
+
+                /**  Execute and process body before create new element */
+                if (fIn_ && typeof (fIn_) == 'function') {
+                    req = await fIn_(req)
+                }
+
+                let {where, whereObject, like} = req.body
+
+                let order = {};
+                let search_columns_or = []
+
+                if (req.body.columns && req.body.order) {
+                    for (let item of req.body.order) {
+                        let name = req.body.columns[item.column].data;
+                        let search = (req.body.columns[item.column]?.search?.value) || '';
+                        let dir = item.dir;
+                        order[name] = dir;
+
+                        if (search !== "" && options.search_by_field) {
+                            let inner = {}
+                            inner[name] = {$regex: search, $options: 'g'}
+                            search_columns_or.push(inner)
+                        }
+                    }
+                }
+
+                if (options.search_by_field) {
+                    pipeline.push({
+                        $match: {$or: search_columns_or}
+                    })
+                }
+
+
+                let fields = []
+                if (search_fields) {
+                    if (typeof search_fields == 'string' && search_fields != '') {
+                        fields = search_fields.split(',')
+                    }
+                    if (typeof search_fields == "object" && Array.isArray(search_fields)) {
+                        fields = search_fields
+                    }
+                }
+
+                if (fields.length > 0) {
+                    let or = []
+                    for (let item of fields) {
+                        let inner = {}
+                        inner[item] = {$regex: body?.search?.value, $options: 'g'}
+                        or.push(inner)
+                    }
+                    pipeline.push({
+                        $match: {$or: or}
+                    })
+                }
+
+                let find = {};
+                if (like) {
+                    for (const [key, val] of Object.entries(like)) {
+                        find[key] = {$regex: String(val).trim(), $options: 'i'};
+                    }
+                }
+                if (where) {
+                    for (const [key, val] of Object.entries(where)) {
+                        find[key] = val;
+                    }
+                }
+                if (whereObject) {
+                    for (const [key, val] of Object.entries(whereObject)) {
+                        find[key] = ObjectId(val);
+                    }
+                }
+
+                pipeline.push({
+                    $match: find
+                })
+
+
+                let table = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
+                let total = table.length
+
+                pipeline.push({
+                    $skip: body.start
+                })
+                pipeline.push({
+                    $limit: body.length
+                })
+
+                console.log('Pipeline', JSON.stringify(pipeline))
+
+                let table2 = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
+
+
+                if (fOut_ && typeof (fOut_) == 'function') {
+                    table = await fOut_(table2)
+                }
+
+                response.data = table
+                response.recordsTotal = total
+                response.recordsFiltered = total
+                response.total = total
+
+                res.status(200).json(response)
+
             } catch (e) {
                 let response = {}
                 response.error = e
