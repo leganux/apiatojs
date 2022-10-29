@@ -86,13 +86,16 @@ let whereConstructor = function (where) {
 /** Here we define the apiato constructor */
 let apiato = function (options) {
 
-    console.log(`
+    if(!options?.hideLogo){
+        console.log(`
      __   ____  __   __  ____  __       __  ____ 
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.1.5
+                        (c) leganux.net 2021-2022  v1.1.7
 `)
+    }
+
 
     /** This function helps  to create  a new element in model*/
     this.createOne = function (model_, validationObject, populationObject, options, fIn_, fOut_) {
@@ -970,12 +973,18 @@ let apiato = function (options) {
 
 
     /** This function helps  to get datable data format  using an agreggation */
-    this.datatable_aggregate = function (model_, pipeline = [], search_fields, options = {
+    this.datatable_aggregate = function (model_, pipeline_ = [], search_fields, options = {
         allowDiskUse: true,
         search_by_field: false
-    }, fIn_, fOut_) {
+    }, fIn_, fOut_)
+    {
+
 
         return async function (req, res) {
+
+            let pipeline2 = []
+            let pipeline = [...pipeline_]
+
             try {
 
                 let response = {
@@ -991,7 +1000,9 @@ let apiato = function (options) {
 
                 /**  Execute and process body before create new element */
                 if (fIn_ && typeof (fIn_) == 'function') {
-                    req = await fIn_(req)
+                    let res_ = await fIn_(req, pipeline)
+                    req = res_.req
+                    pipeline = res_.pipeline
                 }
 
                 let {where, whereObject, like} = req.body
@@ -1009,7 +1020,7 @@ let apiato = function (options) {
 
                         if (search !== "" && options.search_by_field) {
                             let inner = {}
-                            inner[name] = {$regex: search, $options: 'g'}
+                            inner[name] = {$regex: search, $options: 'i'}
                             search_columns_or.push(inner)
                         }
                     }
@@ -1032,11 +1043,15 @@ let apiato = function (options) {
                     }
                 }
 
-                if (fields.length > 0) {
+                if (fields.length > 0 && body?.search?.value != '') {
                     let or = []
                     for (let item of fields) {
                         let inner = {}
-                        inner[item] = {$regex: body?.search?.value, $options: 'g'}
+                        if (isNaN(Number(body?.search?.value))) {
+                            inner[item] = {$regex: body?.search?.value, $options: 'i'}
+                        } else {
+                            inner[item] = Number(body?.search?.value)
+                        }
                         or.push(inner)
                     }
                     pipeline.push({
@@ -1070,7 +1085,7 @@ let apiato = function (options) {
                 let total = table.length
                 console.log('total', total)
 
-                let pipeline2 = [...pipeline]
+                pipeline2 = [...pipeline]
 
                 pipeline2.push({
                     $skip: Number(body?.start || 0)
@@ -1087,20 +1102,18 @@ let apiato = function (options) {
                 let table2 = await model_.aggregate(pipeline2).allowDiskUse(options.allowDiskUse)
 
 
-                if (fOut_ && typeof (fOut_) == 'function') {
-                    table2 = await fOut_(table2)
-                }
-
                 response.data = table2
                 response.recordsTotal = total
                 response.recordsFiltered = total
                 response.total = total
 
+                if (fOut_ && typeof (fOut_) == 'function') {
+                    response = await fOut_(response)
+                }
+
                 console.log('Pipeline', JSON.stringify(pipeline2))
                 res.status(200).json(response)
 
-                pipeline2 = []
-                pipeline = []
 
             } catch (e) {
                 let response = {}
