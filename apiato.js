@@ -92,7 +92,7 @@ let apiato = function (options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.1.7
+                        (c) leganux.net 2021-2022  v1.1.8
 `)
     }
 
@@ -379,7 +379,7 @@ let apiato = function (options) {
                 if (!newElement) {
                     response.error = '404 not found'
                     response.success = false
-                    response.message = validation.messages.join(', ')
+                    response.message = 'Object not found'
                     response.code = options && options.customNotFoundCode ? options.customNotFoundCode : 404
                     response.data = {}
                     res.status(options && options.customNotFoundCode ? options.customNotFoundCode : 404).json(response)
