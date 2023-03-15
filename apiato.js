@@ -92,7 +92,7 @@ let apiato = function (options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.1.8
+                        (c) leganux.net 2021-2022  v1.2.1
 `)
     }
 
@@ -1132,7 +1132,7 @@ let apiato = function (options) {
     /** This function helps  to get  data   using an agreggation */
     this.aggregate = function (model_, pipeline_ = [], options = {allowDiskUse: true}, fIn_, fMid_, fOut_) {
         return async function (req, res) {
-            let pipeline = pipeline_
+            let pipeline = [...pipeline_]
             try {
                 let response = {
                     error: '',
@@ -1169,9 +1169,13 @@ let apiato = function (options) {
                     }
                 }
 
-                pipeline.push({
-                    $match: find
-                })
+
+                if (find && Object.entries(find).length > 0) {
+                    pipeline.push({
+                        $match: find
+                    })
+                }
+
                 if (paginate && paginate.limit && paginate.page) {
                     paginate.limit = Number(paginate.limit);
                     paginate.page = Number(paginate.page);
@@ -1210,16 +1214,15 @@ let apiato = function (options) {
                 if (fMid_ && typeof (fMid_) == 'function') {
                     pipeline = await fMid_(pipeline)
                 }
+                
+                console.log('Full Pipeline', model_, JSON.stringify(pipeline))
 
                 response.data = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
 
                 if (fOut_ && typeof (fOut_) == 'function') {
                     response = await fOut_(response)
                 }
-
-                console.log('Full Pipeline', JSON.stringify(pipeline))
                 res.status(200).json(response)
-
 
             } catch (e) {
                 let response = {
