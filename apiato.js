@@ -86,7 +86,7 @@ let whereConstructor = function (where) {
 /** Here we define the apiato constructor */
 let apiato = function (options) {
 
-    if(!options?.hideLogo){
+    if (!options?.hideLogo) {
         console.log(`
      __   ____  __   __  ____  __       __  ____ 
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
@@ -976,8 +976,7 @@ let apiato = function (options) {
     this.datatable_aggregate = function (model_, pipeline_ = [], search_fields, options = {
         allowDiskUse: true,
         search_by_field: false
-    }, fIn_, fOut_)
-    {
+    }, fIn_, fOut_) {
 
 
         return async function (req, res) {
@@ -1122,6 +1121,116 @@ let apiato = function (options) {
                 response.message = e
                 response.code = options && options.customErrorCode ? options.customErrorCode : 500
                 response.data = {}
+                res.status(options && options.customErrorCode ? options.customErrorCode : 500).json(response)
+                throw e
+            }
+
+        }
+    }
+
+
+    /** This function helps  to get  data   using an agreggation */
+    this.aggregate = function (model_, pipeline_ = [], options = {allowDiskUse: true}, fIn_, fMid_, fOut_) {
+        return async function (req, res) {
+            let pipeline = pipeline_
+            try {
+                let response = {
+                    error: '',
+                    success: false,
+                    message: '',
+                    code: 0,
+                    data: {}
+                };
+
+                /**  Execute and process body before create new element */
+                if (fIn_ && typeof (fIn_) == 'function') {
+                    let res_ = await fIn_(req, pipeline)
+                    req = res_.req
+                    pipeline = res_.pipeline
+                }
+
+                let {select, where, whereObject, like, paginate, sort} = req.query
+
+
+                let find = {};
+                if (like) {
+                    for (const [key, val] of Object.entries(like)) {
+                        find[key] = {$regex: String(val).trim(), $options: 'i'};
+                    }
+                }
+                if (where) {
+                    for (const [key, val] of Object.entries(where)) {
+                        find[key] = val;
+                    }
+                }
+                if (whereObject) {
+                    for (const [key, val] of Object.entries(whereObject)) {
+                        find[key] = ObjectId(val);
+                    }
+                }
+
+                pipeline.push({
+                    $match: find
+                })
+                if (paginate && paginate.limit && paginate.page) {
+                    paginate.limit = Number(paginate.limit);
+                    paginate.page = Number(paginate.page);
+                    pipeline.push({
+                        $skip: paginate.page * paginate.limit
+                    })
+                    pipeline.push({
+                        $limit: paginate.limit
+                    })
+                }
+                if (sort) {
+                    let order = {};
+                    for (const [key, val] of Object.entries(sort)) {
+                        order[key] = val;
+                    }
+                    pipeline.push({
+                        $sort: order
+                    })
+
+                }
+
+                if (select) {
+                    let selector = {};
+                    for (const [key, val] of Object.entries(select)) {
+                        if (val) {
+                            selector[key] = "$" + key;
+                        }
+                    }
+                    pipeline.push({
+                        $replaceRoot: {
+                            newRoot: selector
+                        }
+                    })
+                }
+
+                if (fMid_ && typeof (fMid_) == 'function') {
+                    pipeline = await fMid_(pipeline)
+                }
+
+                response.data = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)
+
+                if (fOut_ && typeof (fOut_) == 'function') {
+                    response = await fOut_(response)
+                }
+
+                console.log('Full Pipeline', JSON.stringify(pipeline))
+                res.status(200).json(response)
+
+
+            } catch (e) {
+                let response = {
+                    error: e,
+                    success: false,
+                    message: e.stack,
+                    code: options && options.customErrorCode ? options.customErrorCode : 500,
+                    data: {}
+                };
+                response.error = e
+
                 res.status(options && options.customErrorCode ? options.customErrorCode : 500).json(response)
                 throw e
             }

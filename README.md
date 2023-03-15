@@ -218,6 +218,7 @@ app.put('/api/employee/:id', ms_employee.updateById(employeeModel, employeeValid
 app.delete('/api/employee/:id', ms_employee.findIdAndDelete(employeeModel, optionsEmployee))
 app.post('/api/employee/datatble', ms_employee.datatable(employeeModel, populationObjectEmployee, ''))
 app.post('/api/employee/dt_agr', ms_employee.datatable_aggregate(employeeModel, aggregate_pipeline, ''))
+app.get('/api/employee/aggregate', ms_employee.aggregate(employeeModel, aggregate_pipeline))
 
 app.listen(3000, () => {
     console.log("El servidor está inicializado en el puerto 3000");
@@ -804,6 +805,62 @@ var requestOptions = {
 };
 
 fetch("http://localhost:3000/api/dt_agr", requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+```
+
+**Example fetch response**
+
+```json
+{
+  "error": {},
+  "success": true,
+  "message": "ok",
+  "code": 200,
+  "data": {
+    "_id": "60e243c82b4d320571d00639",
+    "name": "Erlich Bachman!!",
+    "age": 50,
+    "location": "Huston TX",
+    "__v": 0
+  }
+}
+```
+
+### *GET:aggregate
+
+**Method Parameters**
+
+* model(mongoose class):[mandatory] The moongose model object
+* pipeline(agreggation pipeline):[optional] The mongodb pipeline aggregation
+* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (allowDiskUsage:default=true )
+* fIn_(function): [optional] Async function that can be executed before process recieve and must to return Express 'res'
+  object.
+* fMid_(function): [optional] Async function that can be executed after create all pipeline of agreggation and before execute 'aggregation exec'
+  object.
+* fOut_(function): [optional] Async function that can be executed after process recieve and must to return mongoose
+  query result.
+
+**Request Parameters**
+
+* query(url): Could contain the next elements
+  * where(object):find where in a match 
+  * where(object):find where in a match if is a objectID
+  * like(object):find where in a regular expression
+  * paginate(object):page: number of page, limit: how many items per page
+  * sort(object): the order asc or desc of an element 
+  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
+
+
+**Fetch request example**
+
+```javascript
+var requestOptions = {
+    method: 'POST',
+};
+
+fetch("http://localhost:3000/api/aggregate", requestOptions)
     .then(response => response.text())
     .then(result => console.log(result))
     .catch(error => console.log('error', error));
