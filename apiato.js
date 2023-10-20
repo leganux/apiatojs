@@ -92,7 +92,7 @@ let apiato = function (options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.2.1
+                        (c) leganux.net 2021-2022  v1.2.3
 `)
     }
 
@@ -1214,7 +1214,7 @@ let apiato = function (options) {
                 if (fMid_ && typeof (fMid_) == 'function') {
                     pipeline = await fMid_(pipeline)
                 }
-                
+
                 console.log('Full Pipeline', model_, JSON.stringify(pipeline))
 
                 response.data = await model_.aggregate(pipeline).allowDiskUse(options.allowDiskUse)

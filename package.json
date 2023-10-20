@@ -1,6 +1,6 @@
 {
   "name": "apiato",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "description": "An amazing and easy to use CRUD  constructors for API with mongo and mongoose",
   "main": "index.js",
   "homepage": "htpps://leganux.net",
@@ -14,8 +14,8 @@
   "author": "Angel Erick Cruz Olivera (leganux)",
   "license": "MIT",
   "dependencies": {
-    "moment": "^2.29.1",
-    "mongoose": "^6.5.2"
+    "moment": "^2.29.4",
+    "mongoose": "^7.6.3"
   },
   "keywords": [
     "CRUD",
