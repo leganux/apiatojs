@@ -92,7 +92,7 @@ let apiato = function (options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2022  v1.2.3
+                        (c) leganux.net 2021-2022  v1.2.5
 `)
     }
 
@@ -290,7 +290,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val);
+                        find[key] = new ObjectId(val);
                     }
                 }
 
@@ -448,7 +448,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(String(val).trim());
+                        find[key] = new ObjectId(String(val).trim());
                     }
                 }
 
@@ -541,7 +541,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(String(val).trim());
+                        find[key] = new ObjectId(String(val).trim());
                     }
                 }
 
@@ -668,7 +668,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val);
+                        find[key] = new ObjectId(val);
                     }
                 }
 
@@ -829,7 +829,7 @@ let apiato = function (options) {
 
                 let id = req.params.id;
 
-                let newElement = await model_.findByIdAndRemove(id);
+                let newElement = await model_.findByIdAndDelete(id);
 
                 if (!newElement) {
                     response.error = '404 not found'
@@ -1071,7 +1071,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val);
+                        find[key] = new ObjectId(val);
                     }
                 }
 
@@ -1165,7 +1165,7 @@ let apiato = function (options) {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = ObjectId(val);
+                        find[key] = new ObjectId(val);
                     }
                 }
 
