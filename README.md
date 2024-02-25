@@ -225,11 +225,190 @@ app.listen(3000, () => {
 });
 ```
 
+**Full example code NOW FOR SQL**
+
+```javascript
+/*imports*/
+const {Sequelize, DataTypes} = require("sequelize");
+const sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: './database.sqlite',
+    //logging: console.log,
+});
+
+const {UUIDV4} = require('sequelize');
+const moment = require('moment');
+
+/* Define model */
+const User = sequelize.define('User', {
+    _id: {
+        type: DataTypes.UUID,
+        defaultValue: UUIDV4,
+        allowNull: false,
+        primaryKey: true,
+        field: '_id',
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'password',
+        customName: 'Password',
+        isPassword: true
+    },
+    username: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: '',
+        field: 'username',
+        customName: 'Username',
+
+    },
+    type_user: {
+        type: DataTypes.ENUM('admin', 'client'),
+        allowNull: false,
+        defaultValue: 'client',
+        field: 'type_user',
+        customName: 'Type of user',
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: '',
+        field: 'name',
+        customName: 'Name',
+    },
+    lastname: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: '',
+        field: 'lastname',
+        customName: 'Last name',
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: '',
+        field: 'email',
+        customName: 'Email',
+    },
+    picture: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: false,
+        field: 'picture',
+        customName: 'Photo',
+        isFile: true
+    },
+    cellphone: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'cellphone',
+        customName: 'Cellphone',
+    },
+    birthdate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'birthdate',
+        get() {
+            const rawValue = this.getDataValue('birthdate');
+            return moment(rawValue).format('YYYY-MM-DD');
+        }, customName: 'Date of birth',
+    },
+    active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+        field: 'active',
+        customName: 'Active',
+    },
+    isBanned: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'isBanned',
+        customName: 'Is banned',
+    },
+}, {
+    tableName: 'users',
+    timestamps: true,
+});
+
+console.log('* * * ** * * * MODELO ', User.name, User.rawAttributes)
+
+/* Sync model */
+User.sync({alter: true});
+
+
+let apiato_sql = require('apiato/sql')
+
+
+const express = require('express')
+const app = express()
+const port = 3000
+
+const bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({extended: false}));
+
+// parse application/json
+app.use(bodyParser.json());
+
+let validationObject = {
+    username: 'mandatory'
+}
+let populationObject = {}
+let options = {}
+
+let main = async function () {
+    try {
+        await sequelize.authenticate();
+        console.log('Connection has been established successfully.');
+    } catch (error) {
+        console.error('Unable to connect to the database:', error);
+    }
+
+    /* For betther results configure models to accept as priary key _id =UUID  */
+    let apiato = new apiato_sql('_id') /* the name of id for your table or model default _id */
+
+
+    app.get('/', (req, res) => {
+        res.send('Hello World!')
+    })
+
+    app.post('/api/user/datatable', apiato.datatable_aggregate(User, populationObject, ''))
+
+    app.post('/api/user', apiato.createOne(User, validationObject, populationObject, options))
+    app.post('/api/user/many', apiato.createMany(User, validationObject, populationObject, options))
+
+
+    app.get('/api/user/aggregate', apiato.aggregate(User, {}, options))
+
+
+    app.get('/api/user/one', apiato.getOneWhere(User, populationObject, options))
+    app.get('/api/user/', apiato.getMany(User, populationObject, options))
+    app.get('/api/user/:id', apiato.getOneById(User, populationObject, options))
+
+
+    app.put('/api/user/findUpdateOrCreate', apiato.findUpdateOrCreate(User, validationObject, populationObject, options))
+    app.put('/api/user/findUpdate', apiato.findUpdate(User, validationObject, populationObject, options))
+    app.put('/api/user/:id', apiato.updateById(User, validationObject, populationObject, options))
+    app.delete('/api/user/:id', apiato.findIdAndDelete(User, options))
+
+
+    app.listen(port, () => {
+        console.log(`Example app listening on port ${port}`)
+    })
+
+}
+
+main()
+
+```
+
 <hr>
 
 ## Methods
 
-### *POST:createOne
+### *POST:createOne (mongodb/SQL)
 
 **Method Parameters**
 
@@ -291,7 +470,7 @@ fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", reques
 }
 ```
 
-### *POST:createMany
+### *POST:createMany  (mongodb/SQL)
 
 **Method Parameters**
 
@@ -365,7 +544,7 @@ fetch("http://localhost:3000/api/employee/?select[name]=1&select[age]=1", reques
 
 ```
 
-### *GET:getMany
+### *GET:getMany (mongodb/SQL)
 
 **Method Parameters**
 
@@ -430,7 +609,7 @@ fetch("http://localhost:3000/api/employee/?paginate[page]=2&paginate[limit]=3&so
 
 ```
 
-### *GET:getOneWhere
+### *GET:getOneWhere (mongodb/SQL)
 
 **Method Parameters**
 
@@ -487,7 +666,7 @@ fetch("http://localhost:3000/api/employee/one?like[name]=Jared", requestOptions)
 
 ```
 
-### *GET:getOneById
+### *GET:getOneById (mongodb/SQL)
 
 **Method Parameters**
 
@@ -539,7 +718,7 @@ fetch("http://localhost:3000/api/employee/60e0f5ef37eb110f8c2b5768", requestOpti
 
 ```
 
-### *PUT:findUpdateOrCreate
+### *PUT:findUpdateOrCreate (mongodb/SQL)
 
 (Updates only first appearance by match, not updates many elements )
 
@@ -607,7 +786,7 @@ fetch("http://localhost:3000/api/employee/find_update_or_create?where[name]=Erli
 
 ```
 
-### *PUT:findUpdate
+### *PUT:findUpdate (mongodb/SQL)
 
 (Updates only first appearance by match, not updates many elements )
 
@@ -674,7 +853,7 @@ fetch("http://localhost:3000/api/employee/find_where_and_update?where[name]=Erli
 }
 ```
 
-### *PUT:updateById
+### *PUT:updateById (mongodb/SQL)
 
 **Method Parameters**
 
@@ -736,7 +915,7 @@ fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOpti
 }
 ```
 
-### *DELETE:findIdAndDelete
+### *DELETE:findIdAndDelete (mongodb/SQL)
 
 **Method Parameters**
 
@@ -781,15 +960,15 @@ fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOpti
 }
 ```
 
-
-### *POST:datatable_aggregate_
+### *POST:datatable_aggregate (mongodb/SQL)
 
 **Method Parameters**
 
 * model(mongoose class):[mandatory] The moongose model object
 * pipeline(agreggation pipeline):[optional] The mongodb pipeline aggregation
 * search_fields (columns where datatble find):[optional] Array of search fields
-* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (allowDiskUsage:default=true search_by_field:default=false )
+* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (
+  allowDiskUsage:default=true search_by_field:default=false )
 * fIn_(function): [optional] Async function that can be executed before process recieve and must to return Express 'res'
   object.
 * fOut_(function): [optional] Async function that can be executed after process recieve and must to return mongoose
@@ -804,7 +983,7 @@ var requestOptions = {
     method: 'POST',
 };
 
-fetch("http://localhost:3000/api/dt_agr", requestOptions)
+fetch("http://localhost:3000/api/datatable", requestOptions)
     .then(response => response.text())
     .then(result => console.log(result))
     .catch(error => console.log('error', error));
@@ -828,16 +1007,18 @@ fetch("http://localhost:3000/api/dt_agr", requestOptions)
 }
 ```
 
-### *GET:aggregate
+### *GET:aggregate (mongodb/SQL = for SQL adds a custom sequelize object )
 
 **Method Parameters**
 
 * model(mongoose class):[mandatory] The moongose model object
 * pipeline(agreggation pipeline):[optional] The mongodb pipeline aggregation
-* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (allowDiskUsage:default=true )
+* options(Object): [optional] Object that defines some configuration for mongoose and elements requested (
+  allowDiskUsage:default=true )
 * fIn_(function): [optional] Async function that can be executed before process recieve and must to return Express 'res'
   object.
-* fMid_(function): [optional] Async function that can be executed after create all pipeline of agreggation and before execute 'aggregation exec'
+* fMid_(function): [optional] Async function that can be executed after create all pipeline of agreggation and before
+  execute 'aggregation exec'
   object.
 * fOut_(function): [optional] Async function that can be executed after process recieve and must to return mongoose
   query result.
@@ -845,13 +1026,12 @@ fetch("http://localhost:3000/api/dt_agr", requestOptions)
 **Request Parameters**
 
 * query(url): Could contain the next elements
-  * where(object):find where in a match 
-  * where(object):find where in a match if is a objectID
-  * like(object):find where in a regular expression
-  * paginate(object):page: number of page, limit: how many items per page
-  * sort(object): the order asc or desc of an element 
-  * select(Object):Object that defines wich parameters return. Object must be transformed to url format
-
+    * where(object):find where in a match
+    * where(object):find where in a match if is a objectID
+    * like(object):find where in a regular expression
+    * paginate(object):page: number of page, limit: how many items per page
+    * sort(object): the order asc or desc of an element
+    * select(Object):Object that defines wich parameters return. Object must be transformed to url format
 
 **Fetch request example**
 
@@ -930,7 +1110,7 @@ let options = {
 }
 ```
 
-**Population Object**
+**Population Object**  (mongodb/SQL)
 
 ```javascript
 let populationObject = {
@@ -938,7 +1118,7 @@ let populationObject = {
 }
 ```
 
-**Validation Object**
+**Validation Object**  (mongodb/SQL)
 
 ```javascript
 let validationObject = {
@@ -948,7 +1128,7 @@ let validationObject = {
 }
 ```
 
-## Object request query URL example
+## Object request query URL example  (mongodb/SQL)
 
 **where**
 
@@ -1059,7 +1239,7 @@ let populate = {
 
 
 <p align="center">
-    <img src="https://leganux.net/web/wp-content/uploads/2020/01/circullogo.png" width="100" title="hover text">
+    <img src="https://leganux.net/images/circullogo.png" width="100" title="hover text">
     <br>
   APIATO is another project of  <a href="https://leganux.net">leganux.net</a> &copy; 2021 all rights reserved
     <br>
