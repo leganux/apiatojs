@@ -121,7 +121,7 @@ npm install apiato
 
 ```javascript
 //import APIATO
-let apiato = require('apiato')
+let apiato = require('js/no_sql/apiato')
 //initialize microservice objecto for employee colection
 let ms_employee = new apiato();
 ```
@@ -174,7 +174,7 @@ const connection = mongoose.connection;
 connection.once("open", function () {
     console.log("MongoDB database connection established successfully");
 });
-let apiato = require('apiato')
+let apiato = require('js/no_sql/apiato')
 let ms_employee = new apiato();
 const Schema = mongoose.Schema;
 let employee = new Schema(
@@ -1237,6 +1237,149 @@ let populate = {
 
 <hr>
 
+## TypeScript Support
+
+APIATO also provides full TypeScript support with type definitions for both SQL and NoSQL databases. The TypeScript version provides better type safety and enhanced IDE support.
+
+### Installation
+
+```bash
+npm install @apiatojs/typescript
+```
+
+### Basic TypeScript Usage
+
+**Configure Express with TypeScript**
+
+```typescript
+import express from 'express';
+import bodyParser from 'body-parser';
+import mongoose from 'mongoose';
+import { Apiato } from '@apiatojs/typescript/no-sql';
+
+const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+// MongoDB connection
+const uri = "mongodb://localhost:27017/apiator";
+mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true });
+const connection = mongoose.connection;
+connection.once("open", () => {
+    console.log("MongoDB database connection established successfully");
+});
+```
+
+**Create Model and Schema with TypeScript**
+
+```typescript
+import { Schema, model } from 'mongoose';
+
+interface IEmployee {
+    name: string;
+    age: number;
+    location?: string;
+}
+
+const employeeSchema = new Schema<IEmployee>({
+    name: { type: String },
+    age: { type: Number },
+    location: { type: String }
+});
+
+const EmployeeModel = model<IEmployee>('employees', employeeSchema);
+
+const employeeValidationObject = {
+    name: 'string,mandatory',
+    age: 'number,mandatory',
+    location: 'string'
+};
+```
+
+**Initialize APIATO with TypeScript**
+
+```typescript
+import { Apiato } from '@apiatojs/typescript/no-sql';
+
+const msEmployee = new Apiato();
+
+// Define types for population and options
+type PopulationObject = Record<string, any>;
+type Options = Record<string, any>;
+
+const populationObject: PopulationObject = {};
+const options: Options = {};
+
+// Route definitions with TypeScript
+app.post('/api/employee', msEmployee.createOne(EmployeeModel, employeeValidationObject, populationObject, options));
+app.get('/api/employee', msEmployee.getMany(EmployeeModel, populationObject, options));
+app.get('/api/employee/:id', msEmployee.getOneById(EmployeeModel, populationObject, options));
+// ... other routes
+```
+
+### SQL Support with TypeScript
+
+```typescript
+import { Sequelize, DataTypes } from 'sequelize';
+import { ApiatoSQL } from '@apiatojs/typescript/sql';
+
+// Initialize Sequelize
+const sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: './database.sqlite'
+});
+
+// Define model with TypeScript
+interface UserAttributes {
+    _id: string;
+    username: string;
+    email: string;
+    active: boolean;
+}
+
+const User = sequelize.define('User', {
+    _id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
+    username: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    active: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    }
+});
+
+// Initialize APIATO SQL with TypeScript
+const apiato = new ApiatoSQL('_id');
+
+// Define routes with proper types
+app.post('/api/user', apiato.createOne(User, validationObject, populationObject, options));
+app.get('/api/user', apiato.getMany(User, populationObject, options));
+// ... other routes
+```
+
+### Type Definitions
+
+The TypeScript version includes comprehensive type definitions for:
+- Request and response objects
+- Validation schemas
+- Population objects
+- Configuration options
+- Database models and schemas
+- Query parameters and filters
+
+These type definitions help catch errors at compile time and provide better IDE support for autocomplete and documentation.
+
+<hr>
+
 
 <p align="center">
     <img src="https://leganux.net/images/circullogo.png" width="100" title="hover text">
@@ -1250,5 +1393,3 @@ let populate = {
 <br>
 The logo and the name of APIATO is inspired by the name of AVIATO, the fictional company of Erlich Bachman, a character from the HBO series, Silicon Valley. This inspiration was taken for fun purposes only. The original name and logo reserve their rights to their original creators. 
 </p>
-
-

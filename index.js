@@ -1,1 +1,1 @@
-module.exports = require('./apiato');
+module.exports = require('./js/no_sql/apiato');
