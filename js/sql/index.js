@@ -100,7 +100,7 @@ let apiato_sql = function (id_name = '_id', options) {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        ForSQL BETA 0.0.1 (c) leganux.net 2021-2022  v1.2.5
+                        ForSQL BETA 0.0.1 (c) leganux.net 2021-2025  v3.1.1
 `)
     }
 
