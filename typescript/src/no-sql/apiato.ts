@@ -1,20 +1,16 @@
+import { Document, Model, PopulateOptions } from 'mongoose';
 import moment from 'moment';
-import mongoose from 'mongoose';
 import validator from '../utils/validator';
 import {
     ApiOptions,
     ApiResponse,
-    MongooseModelType,
-    MongooseRequestHandler,
     PopulationObject,
     PreRequestHook,
     PostResponseHook,
     RequestWithQuery,
     ValidationObject,
-    MongooseDocument
+    MongooseRequestHandler
 } from '../types';
-
-const ObjectId = mongoose.Types.ObjectId;
 
 /**
  * This function helps to create and return population in mongoose
@@ -23,54 +19,56 @@ const populateConstructor = (
     query: any,
     populate: any,
     populationObject: PopulationObject
-): any => {
+): PopulateOptions[] => {
+    const arrayForPopulate: PopulateOptions[] = [];
+
     if (populate && populationObject) {
         if ((typeof populate === 'boolean' || typeof populate === 'number' || typeof populate === 'string') &&
             (Boolean(populate) === true || populate === 1)) {
             for (const [key, value] of Object.entries(populationObject)) {
-                query.populate({
+                arrayForPopulate.push({
                     path: key,
-                    model: value
+                    model: value as any
                 });
             }
         }
         if (typeof populate === 'object') {
             for (const [key, value] of Object.entries(populate)) {
                 if (value && populationObject[key]) {
-                    query.populate({
+                    arrayForPopulate.push({
                         path: key,
-                        model: populationObject[key]
+                        model: populationObject[key] as any
                     });
                 }
             }
         }
     }
-    return query;
+    return arrayForPopulate;
 };
 
 /**
  * This function helps to create and return select fields in mongoose
  */
-const selectConstructor = (query: any, select: any): void => {
+const selectConstructor = (query: any, select: any): string => {
+    let selectString = '';
     if (select) {
-        let ob: { [key: string]: number } = {};
         if (typeof select === 'string') {
-            select.split(',').forEach(item => {
-                ob[item] = 1;
-            });
+            selectString = select;
         } else if (typeof select === 'object') {
-            for (const [key, val] of Object.entries(select)) {
-                ob[key] = Number(val);
+            if (Array.isArray(select)) {
+                selectString = select.join(' ');
+            } else {
+                selectString = Object.keys(select).join(' ');
             }
         }
-        query.select(ob);
     }
+    return selectString;
 };
 
 const whereConstructor = (where: any): any => {
     if (where) {
         for (const [key, val] of Object.entries(where)) {
-            if (!isNaN(Number(val))) {
+            if (Number(val)) {
                 where[key] = Number(val);
                 continue;
             }
@@ -83,7 +81,7 @@ const whereConstructor = (where: any): any => {
     return where;
 };
 
-export class Apiato {
+export class ApiatoNoSQL {
     constructor(options?: ApiOptions) {
         if (!options?.hideLogo) {
             console.log(`
@@ -91,7 +89,7 @@ export class Apiato {
  / _\\ (  _ \\(  ) / _\\(_  _)/  \\    _(  )/ ___)
 /    \\ ) __/ )( /    \\ )( (  O )_ / \\) \\\\___ \\
 \\_/\\_/(__)  (__)\\_/\\_/(__) \\__/(_)\\____/(____/
-                        (c) leganux.net 2021-2025  v3.1.1
+                        ForNoSQL BETA 0.0.1 (c) leganux.net 2021-2025  v3.1.1
 `);
         }
     }
@@ -99,8 +97,8 @@ export class Apiato {
     /**
      * This function helps to create a new element in model
      */
-    createOne<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    createOne<T extends Document>(
+        model: Model<T>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
@@ -136,11 +134,19 @@ export class Apiato {
                     return false;
                 }
 
-                let newElement = new (model as any)(body);
-                newElement = await newElement.save();
+                let newElement = await model.create(body);
+
                 const query = model.findById(newElement._id);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
                 newElement = await query.exec();
 
                 if (fOut && typeof fOut === 'function') {
@@ -169,8 +175,8 @@ export class Apiato {
     /**
      * This function helps to create many elements in model
      */
-    createMany<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    createMany<T extends Document>(
+        model: Model<T>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
@@ -220,12 +226,20 @@ export class Apiato {
                     }
                 }
 
-                let newElements = await model.insertMany(correct);
+                let newElements = await model.create(correct);
                 const elementIds = newElements.map(item => item._id);
 
                 const query = model.find({ _id: { $in: elementIds } });
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
                 newElements = await query.exec();
 
                 if (fOut && typeof fOut === 'function') {
@@ -254,8 +268,8 @@ export class Apiato {
     /**
      * This function helps to get many elements from collection
      */
-    getMany<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    getMany<T extends Document>(
+        model: Model<T>,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
@@ -283,7 +297,7 @@ export class Apiato {
                 const find: any = {};
                 if (processedLike) {
                     for (const [key, val] of Object.entries(processedLike)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = { $regex: val, $options: 'i' };
                     }
                 }
                 if (processedWhere) {
@@ -293,27 +307,29 @@ export class Apiato {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = new ObjectId(String(val));
+                        find[key] = val;
                     }
                 }
 
                 const query = model.find(find);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
 
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
 
                 if (paginate && paginate.limit && paginate.page) {
-                    const limit = Number(paginate.limit);
-                    const page = Number(paginate.page);
-                    query.limit(limit).skip(page * limit);
+                    query.limit(Number(paginate.limit));
+                    const skip = (Number(paginate.page) - 1) * Number(paginate.limit);
+                    query.skip(skip);
                 }
 
                 if (sort) {
-                    const order: any = {};
-                    for (const [key, val] of Object.entries(sort)) {
-                        order[key] = val;
-                    }
-                    query.sort(order);
+                    query.sort(sort);
                 }
 
                 let elements = await query.exec();
@@ -346,8 +362,8 @@ export class Apiato {
     /**
      * This function helps to get an element by id from collection
      */
-    getOneById<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    getOneById<T extends Document>(
+        model: Model<T>,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
@@ -371,8 +387,16 @@ export class Apiato {
                 const { populate, select } = req.query;
 
                 const query = model.findById(id);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
                 let element = await query.exec();
 
                 if (!element) {
@@ -411,8 +435,8 @@ export class Apiato {
     /**
      * This function helps to get an element by filtering parameters using where object from collection
      */
-    getOneWhere<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    getOneWhere<T extends Document>(
+        model: Model<T>,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
@@ -432,7 +456,7 @@ export class Apiato {
                     req = await fIn(req);
                 }
 
-                const { where, like, whereObject, select, populate } = req.query;
+                const { where, like, whereObject, select, sort, populate } = req.query;
 
                 const processedWhere = whereConstructor(where);
                 const processedLike = whereConstructor(like);
@@ -440,7 +464,7 @@ export class Apiato {
                 const find: any = {};
                 if (processedLike) {
                     for (const [key, val] of Object.entries(processedLike)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = { $regex: val, $options: 'i' };
                     }
                 }
                 if (processedWhere) {
@@ -450,13 +474,24 @@ export class Apiato {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = new ObjectId(String(val).trim());
+                        find[key] = val;
                     }
                 }
 
                 const query = model.findOne(find);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
+                if (sort) {
+                    query.sort(sort);
+                }
 
                 let element = await query.exec();
 
@@ -496,8 +531,8 @@ export class Apiato {
     /**
      * This function helps to get an element by filtering parameters using where object from collection and updating if exist or create if not exist
      */
-    findUpdateOrCreate<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    findUpdateOrCreate<T extends Document>(
+        model: Model<T>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
@@ -531,14 +566,13 @@ export class Apiato {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = new ObjectId(String(val).trim());
+                        find[key] = val;
                     }
                 }
 
-                let element = await model.findOne(find).exec();
+                let element = await model.findOne(find);
+
                 if (!element) {
-                    element = new (model as any)(find);
-                    element = await element.save();
                     const validation = validator.validateObject(data, validationObject, true);
                     if (!validation.success) {
                         response.error = validation.messages;
@@ -549,6 +583,7 @@ export class Apiato {
                         res.status(response.code).json(response);
                         return false;
                     }
+                    element = await model.create(data);
                 } else {
                     const validation = validator.validateObject(data, validationObject);
                     if (!validation.success) {
@@ -562,17 +597,28 @@ export class Apiato {
                     }
                 }
 
-                if (element) {
-                    Object.assign(element, data);
-                    if (options?.updateFieldName) {
-                        (element as any)[options.updateFieldName] = moment().format();
-                    }
+                for (const [key, value] of Object.entries(data)) {
+                    element[key] = value;
                 }
 
+                if (options?.updateFieldName) {
+                    element[options.updateFieldName] = moment().format();
+                }
+
+                element = await element.save();
+
                 const query = model.findById(element._id);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-                const result = await query.exec();
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
+                element = await query.exec();
 
                 if (fOut && typeof fOut === 'function') {
                     element = await fOut(element);
@@ -600,8 +646,8 @@ export class Apiato {
     /**
      * This function helps to get an element by filtering parameters using where object from collection and updating if exist
      */
-    findUpdate<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    findUpdate<T extends Document>(
+        model: Model<T>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
@@ -642,7 +688,7 @@ export class Apiato {
                 const find: any = {};
                 if (processedLike) {
                     for (const [key, val] of Object.entries(processedLike)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
+                        find[key] = { $regex: val, $options: 'i' };
                     }
                 }
                 if (processedWhere) {
@@ -652,11 +698,11 @@ export class Apiato {
                 }
                 if (whereObject) {
                     for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = new ObjectId(String(val));
+                        find[key] = val;
                     }
                 }
 
-                let element = await model.findOne(find).exec();
+                let element = await model.findOne(find);
 
                 if (!element) {
                     response.error = '404 not found';
@@ -668,21 +714,30 @@ export class Apiato {
                     return false;
                 }
 
-                if (element) {
-                    Object.assign(element, data);
-                    if (options?.updateFieldName) {
-                        (element as any)[options.updateFieldName] = moment().format();
-                    }
+                for (const [key, value] of Object.entries(data)) {
+                    element[key] = value;
+                }
+
+                if (options?.updateFieldName) {
+                    element[options.updateFieldName] = moment().format();
                 }
 
                 element = await element.save();
 
                 const query = model.findById(element._id);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
                 element = await query.exec();
 
-                if (element && fOut && typeof fOut === 'function') {
+                if (fOut && typeof fOut === 'function') {
                     element = await fOut(element);
                 }
 
@@ -708,8 +763,8 @@ export class Apiato {
     /**
      * This function helps to get an element by id from collection and updating if exist
      */
-    updateById<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    updateById<T extends Document>(
+        model: Model<T>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
@@ -745,13 +800,9 @@ export class Apiato {
                     return false;
                 }
 
-                if (options?.updateFieldName) {
-                    body[options.updateFieldName] = moment().format();
-                }
+                let updatedElement = await model.findById(id);
 
-                const element = await model.findByIdAndUpdate(id, { $set: body });
-
-                if (!element) {
+                if (!updatedElement) {
                     response.error = '404 not found';
                     response.success = false;
                     response.message = validation.messages.join(', ');
@@ -761,12 +812,30 @@ export class Apiato {
                     return false;
                 }
 
-                const query = model.findById(element._id);
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-                let updatedElement = await query.exec();
+                for (const [key, value] of Object.entries(body)) {
+                    updatedElement[key] = value;
+                }
 
-                if (updatedElement && fOut && typeof fOut === 'function') {
+                if (options?.updateFieldName) {
+                    updatedElement[options.updateFieldName] = moment().format();
+                }
+
+                updatedElement = await updatedElement.save();
+
+                const query = model.findById(updatedElement._id);
+                const populateArray = populateConstructor(query, populate, populationObject);
+                const selectString = selectConstructor(query, select);
+
+                if (populateArray.length > 0) {
+                    query.populate(populateArray);
+                }
+                if (selectString) {
+                    query.select(selectString);
+                }
+
+                updatedElement = await query.exec();
+
+                if (fOut && typeof fOut === 'function') {
                     updatedElement = await fOut(updatedElement);
                 }
 
@@ -792,8 +861,8 @@ export class Apiato {
     /**
      * This function helps to delete an element by id
      */
-    findIdAndDelete<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
+    findIdAndDelete<T extends Document>(
+        model: Model<T>,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T>
@@ -813,7 +882,8 @@ export class Apiato {
                 }
 
                 const id = req.params.id;
-                let element = await model.findByIdAndDelete(id);
+
+                let element = await model.findById(id);
 
                 if (!element) {
                     response.error = '404 not found';
@@ -824,6 +894,8 @@ export class Apiato {
                     res.status(response.code).json(response);
                     return false;
                 }
+
+                await element.deleteOne();
 
                 if (fOut && typeof fOut === 'function') {
                     element = await fOut(element);
@@ -848,257 +920,6 @@ export class Apiato {
             }
         };
     }
-
-    /**
-     * This function helps to manage content using mongoose-datatables-fork
-     */
-    datatable<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
-        populationObject: PopulationObject,
-        search_fields: string | string[],
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<any>
-    ): MongooseRequestHandler {
-        return async (req, res) => {
-            try {
-                console.log('BODY ', JSON.stringify(req.body));
-
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                const { populate } = req.query;
-
-                const order: { [key: string]: string } = {};
-                if (req.body.columns && req.body.order) {
-                    req.body.order.forEach((item: any) => {
-                        const name = req.body.columns[item.column].data;
-                        const dir = item.dir;
-                        order[name] = dir;
-                    });
-                }
-
-                let fields: string[] = [];
-                if (search_fields) {
-                    if (typeof search_fields === 'string' && search_fields !== '') {
-                        fields = search_fields.split(',');
-                    }
-                    if (Array.isArray(search_fields)) {
-                        fields = search_fields;
-                    }
-                }
-
-                const find: any = {};
-                if (req.body && req.body.filter && typeof req.body.filter === 'object') {
-                    for (const [key, value] of Object.entries(req.body.filter)) {
-                        if (value && value !== '-1') {
-                            find[key] = value;
-                        }
-                    }
-                }
-
-                const objPopulate: string[] = [];
-
-                if (populate) {
-                    if (typeof populate === 'boolean' || populate === 'true' || populate === 1) {
-                        for (const [key] of Object.entries(populationObject)) {
-                            objPopulate.push(key);
-                        }
-                    }
-                    if (typeof populate === 'object') {
-                        for (const [key, value] of Object.entries(populate)) {
-                            if (value && populationObject[key]) {
-                                objPopulate.push(key);
-                            }
-                        }
-                    }
-                }
-
-                if (model.dataTables) {
-                    model.dataTables({
-                        limit: req.body.length,
-                        skip: req.body.start,
-                        search: {
-                            value: req.body.search.value,
-                            fields: fields
-                        },
-                        sort: order,
-                        populate: objPopulate.length > 0 ? objPopulate : false,
-                        find
-                    }).then(async (table: any) => {
-                        table.success = true;
-                        table.message = 'OK';
-                        table.recordsTotal = table.total;
-                        table.recordsFiltered = table.total;
-
-                        if (fOut && typeof fOut === 'function') {
-                            table = await fOut(table);
-                        }
-
-                        res.status(200).json(table);
-                    }).catch(async (e: any) => {
-                        throw e;
-                    });
-                } else {
-                    throw new Error('dataTables method not found on model');
-                }
-
-            } catch (e) {
-                const response: ApiResponse = {
-                    error: e,
-                    success: false,
-                    message: e as string,
-                    code: 500,
-                    data: {}
-                };
-                res.status(500).json(response);
-                throw e;
-            }
-        };
-    }
-
-    /**
-     * This function helps to get datatable data format using an aggregation
-     */
-    datatable_aggregate<T extends MongooseDocument>(
-        model: MongooseModelType<T>,
-        pipeline: any[] = [],
-        search_fields: string | string[],
-        options: { allowDiskUse?: boolean; search_by_field?: boolean } = {
-            allowDiskUse: true,
-            search_by_field: false
-        },
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<any>
-    ): MongooseRequestHandler {
-        return async (req, res) => {
-            try {
-                const response = {
-                    message: 'OK',
-                    recordsFiltered: 0,
-                    recordsTotal: 0,
-                    total: 0,
-                    success: true,
-                    data: {}
-                };
-
-                const body = req.body;
-
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                const { where, whereObject, like } = req.body;
-                const order: any[] = [];
-                const search_columns_or: any[] = [];
-
-                if (req.body.columns && req.body.order) {
-                    for (const item of req.body.order) {
-                        const name = req.body.columns[item.column].data;
-                        const search = req.body.columns[item.column]?.search?.value || '';
-                        const dir = item.dir;
-                        order.push([name, dir]);
-
-                        if (search !== '' && options.search_by_field) {
-                            const inner: any = {};
-                            inner[name] = { $regex: search, $options: 'i' };
-                            search_columns_or.push(inner);
-                        }
-                    }
-                }
-
-                const OR__: any[] = options.search_by_field ? search_columns_or : [];
-
-                let fields: string[] = [];
-                if (search_fields) {
-                    if (typeof search_fields === 'string' && search_fields !== '') {
-                        fields = search_fields.split(',');
-                    }
-                    if (Array.isArray(search_fields)) {
-                        fields = search_fields;
-                    }
-                }
-
-                if (fields.length > 0 && body?.search?.value) {
-                    for (const item of fields) {
-                        const inner: any = {};
-                        if (isNaN(Number(body.search.value))) {
-                            inner[item] = { $regex: body.search.value, $options: 'i' };
-                        } else {
-                            inner[item] = Number(body.search.value);
-                        }
-                        OR__.push(inner);
-                    }
-                }
-
-                if (OR__.length > 0) {
-                    pipeline.push({ $match: { $or: OR__ } });
-                }
-
-                const find: any = {};
-                if (like) {
-                    for (const [key, val] of Object.entries(like)) {
-                        find[key] = { $regex: String(val).trim(), $options: 'i' };
-                    }
-                }
-                if (where) {
-                    for (const [key, val] of Object.entries(where)) {
-                        find[key] = val;
-                    }
-                }
-                if (whereObject) {
-                    for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = typeof val === 'string' ? new ObjectId(val) : val;
-                    }
-                }
-
-                if (Object.keys(find).length > 0) {
-                    pipeline.push({ $match: find });
-                }
-
-                const table = await model.aggregate(pipeline).allowDiskUse(options.allowDiskUse || false);
-                const total = table.length;
-
-                const pipeline2 = [...pipeline];
-
-                pipeline2.push({ $skip: Number(body?.start || 0) });
-                pipeline2.push({ $limit: Number(body?.length || 10) });
-
-                if (order.length > 0) {
-                    const sortObj: any = {};
-                    order.forEach(([field, dir]) => {
-                        sortObj[field] = dir.toUpperCase() === 'DESC' ? -1 : 1;
-                    });
-                    pipeline2.push({ $sort: sortObj });
-                }
-
-                const table2 = await model.aggregate(pipeline2).allowDiskUse(options.allowDiskUse || false);
-
-                response.data = table2;
-                response.recordsTotal = total;
-                response.recordsFiltered = total;
-                response.total = total;
-
-                if (fOut && typeof fOut === 'function') {
-                    const processedResponse = await fOut(response);
-                    res.status(200).json(processedResponse);
-                } else {
-                    res.status(200).json(response);
-                }
-
-            } catch (e) {
-                const response: ApiResponse = {
-                    error: e,
-                    success: false,
-                    message: e as string,
-                    code: 500,
-                    data: {}
-                };
-                res.status(500).json(response);
-                throw e;
-            }
-        };
-    }
 }
 
-export default Apiato;
+export default ApiatoNoSQL;

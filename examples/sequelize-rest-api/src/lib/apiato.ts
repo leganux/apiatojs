@@ -1,16 +1,111 @@
 import moment from 'moment';
-import { Model, Op } from 'sequelize';
-import validator from '../utils/validator';
-import {
-    ApiOptions,
-    ApiResponse,
-    PopulationObject,
-    PreRequestHook,
-    PostResponseHook,
-    RequestWithQuery,
-    ValidationObject,
-    SequelizeRequestHandler
-} from '../types';
+import { Model, ModelStatic, Op } from 'sequelize';
+import { Request, Response } from 'express';
+
+export interface ApiOptions {
+    hideLogo?: boolean;
+    customErrorCode?: number;
+    customValidationCode?: number;
+    customNotFoundCode?: number;
+    updateFieldName?: string;
+}
+
+export interface ApiResponse {
+    error: any;
+    success: boolean;
+    message: string;
+    code: number;
+    data: any;
+}
+
+export interface ValidationObject {
+    [key: string]: {
+        type: string;
+        required?: boolean;
+        regex?: RegExp;
+        min?: number;
+        max?: number;
+    };
+}
+
+export interface PopulationObject {
+    [key: string]: any;
+}
+
+export type PreRequestHook = (req: Request) => Promise<Request>;
+export type PostResponseHook<T> = (data: T) => Promise<T>;
+
+export type RequestWithQuery = Request & {
+    query: {
+        where?: any;
+        whereObject?: any;
+        like?: any;
+        select?: any;
+        paginate?: { page: number; limit: number };
+        sort?: any;
+        populate?: any;
+    };
+};
+
+const validator = {
+    validateObject: (obj: any, validationObject: ValidationObject, strict = false): { success: boolean; messages: string[] } => {
+        const messages: string[] = [];
+        let success = true;
+
+        // Check required fields
+        for (const [key, rules] of Object.entries(validationObject)) {
+            if (rules.required && (obj[key] === undefined || obj[key] === null || obj[key] === '')) {
+                messages.push(`${key} is required`);
+                success = false;
+            }
+        }
+
+        // Check field types and additional validations
+        for (const [key, value] of Object.entries(obj)) {
+            const rules = validationObject[key];
+            if (!rules && strict) {
+                messages.push(`${key} is not allowed`);
+                success = false;
+                continue;
+            }
+            if (rules) {
+                // Type validation
+                if (rules.type === 'number' && typeof value !== 'number') {
+                    messages.push(`${key} must be a number`);
+                    success = false;
+                }
+                if (rules.type === 'string' && typeof value !== 'string') {
+                    messages.push(`${key} must be a string`);
+                    success = false;
+                }
+                if (rules.type === 'boolean' && typeof value !== 'boolean') {
+                    messages.push(`${key} must be a boolean`);
+                    success = false;
+                }
+
+                // Regex validation
+                if (rules.regex && typeof value === 'string' && !rules.regex.test(value)) {
+                    messages.push(`${key} has invalid format`);
+                    success = false;
+                }
+
+                // Min/Max validation for numbers
+                if (typeof value === 'number') {
+                    if (rules.min !== undefined && value < rules.min) {
+                        messages.push(`${key} must be at least ${rules.min}`);
+                        success = false;
+                    }
+                    if (rules.max !== undefined && value > rules.max) {
+                        messages.push(`${key} must be at most ${rules.max}`);
+                        success = false;
+                    }
+                }
+            }
+        }
+
+        return { success, messages };
+    }
+};
 
 /**
  * This function helps to create and return population in Sequelize
@@ -106,14 +201,14 @@ export class ApiatoSQL {
      * This function helps to create a new element in model
      */
     createOne<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: Request, res: Response) => {
             const response: ApiResponse = {
                 error: '',
                 success: false,
@@ -180,108 +275,16 @@ export class ApiatoSQL {
     }
 
     /**
-     * This function helps to create many elements in model
-     */
-    createMany<T extends Model>(
-        model: typeof Model,
-        validationObject: ValidationObject,
-        populationObject: PopulationObject,
-        options?: ApiOptions,
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<T[]>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
-            const response: ApiResponse = {
-                error: '',
-                success: false,
-                message: '',
-                code: 0,
-                data: {}
-            };
-
-            try {
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                let { body } = req;
-                const { populate, select } = req.query;
-
-                if (body && typeof body === 'object' && !Array.isArray(body)) {
-                    const arr = [];
-                    console.info('An object was received instead of an array, trying to make the conversion');
-                    for (const [key, value] of Object.entries(body)) {
-                        (value as any)._key_ = key;
-                        arr.push(value);
-                    }
-                    body = arr;
-                    console.info('A generated array is', body);
-                }
-
-                const validationErrors = [];
-                const correct = [];
-
-                for (const item of body) {
-                    const validation = validator.validateObject(item, validationObject, true);
-                    if (validation.success) {
-                        correct.push(item);
-                    } else {
-                        validationErrors.push({
-                            error: item,
-                            detail: validation.messages
-                        });
-                    }
-                }
-
-                const newElements = await model.bulkCreate(correct);
-                const elementIds = newElements.map(item => (item as any)[this.id_name]);
-
-                const query: any = {
-                    where: {}
-                };
-                query.where[this.id_name] = elementIds;
-
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-
-                const elements = await model.findAll(query);
-
-                if (fOut && typeof fOut === 'function') {
-                    const processedElements = await fOut(elements as T[]);
-                    response.data = processedElements;
-                } else {
-                    response.data = elements;
-                }
-
-                response.error = validationErrors;
-                response.success = true;
-                response.message = 'ok';
-                response.code = 200;
-                res.status(200).json(response);
-
-            } catch (e) {
-                response.error = e;
-                response.success = false;
-                response.message = e as string;
-                response.code = options?.customErrorCode || 500;
-                response.data = {};
-                res.status(response.code).json(response);
-                throw e;
-            }
-        };
-    }
-
-    /**
      * This function helps to get many elements from collection
      */
     getMany<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T[]>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: RequestWithQuery, res: Response) => {
             const response: ApiResponse = {
                 error: '',
                 success: false,
@@ -377,13 +380,13 @@ export class ApiatoSQL {
      * This function helps to get an element by id from collection
      */
     getOneById<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: Request, res: Response) => {
             const response: ApiResponse = {
                 error: '',
                 success: false,
@@ -446,349 +449,17 @@ export class ApiatoSQL {
     }
 
     /**
-     * This function helps to get an element by filtering parameters using where object from collection
-     */
-    getOneWhere<T extends Model>(
-        model: typeof Model,
-        populationObject: PopulationObject,
-        options?: ApiOptions,
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
-            const response: ApiResponse = {
-                error: '',
-                success: false,
-                message: '',
-                code: 0,
-                data: {}
-            };
-
-            try {
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                const { where, like, whereObject, select, sort, populate } = req.query;
-
-                const processedWhere = whereConstructor(where);
-                const processedLike = whereConstructor(like);
-
-                const find: any = {};
-                if (processedLike) {
-                    for (const [key, val] of Object.entries(processedLike)) {
-                        find[key] = { [Op.like]: `%${val}%` };
-                    }
-                }
-                if (processedWhere) {
-                    for (const [key, val] of Object.entries(processedWhere)) {
-                        find[key] = val;
-                    }
-                }
-                if (whereObject) {
-                    for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = val;
-                    }
-                }
-
-                const query: any = { where: find };
-
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-
-                if (sort) {
-                    const order: any[] = [];
-                    for (const [key, val] of Object.entries(sort)) {
-                        let orderDir = 'ASC';
-                        if (val === -1) {
-                            orderDir = 'DESC';
-                        } else if (val === 1) {
-                            orderDir = 'ASC';
-                        } else {
-                            orderDir = val as string;
-                        }
-                        order.push([key, orderDir.toUpperCase()]);
-                    }
-                    query.order = order;
-                }
-
-                const element = await model.findOne(query);
-
-                if (!element) {
-                    response.error = '404 not found';
-                    response.success = false;
-                    response.message = '404 not found';
-                    response.code = options?.customNotFoundCode || 404;
-                    response.data = {};
-                    res.status(response.code).json(response);
-                    return false;
-                }
-
-                if (fOut && typeof fOut === 'function') {
-                    const processedElement = await fOut(element as T);
-                    response.data = processedElement;
-                } else {
-                    response.data = element;
-                }
-
-                response.error = {};
-                response.success = true;
-                response.message = 'ok';
-                response.code = 200;
-                res.status(200).json(response);
-
-            } catch (e) {
-                response.error = e;
-                response.success = false;
-                response.message = e as string;
-                response.code = options?.customErrorCode || 500;
-                response.data = {};
-                res.status(response.code).json(response);
-                throw e;
-            }
-        };
-    }
-
-    /**
-     * This function helps to get an element by filtering parameters using where object from collection and updating if exist or create if not exist
-     */
-    findUpdateOrCreate<T extends Model>(
-        model: typeof Model,
-        validationObject: ValidationObject,
-        populationObject: PopulationObject,
-        options?: ApiOptions,
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
-            const response: ApiResponse = {
-                error: '',
-                success: false,
-                message: '',
-                code: 0,
-                data: {}
-            };
-
-            try {
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                const data = req.body;
-                const { populate, select, where, whereObject } = req.query;
-
-                const processedWhere = whereConstructor(where);
-
-                const find: any = {};
-                if (processedWhere) {
-                    for (const [key, val] of Object.entries(processedWhere)) {
-                        find[key] = val;
-                    }
-                }
-                if (whereObject) {
-                    for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = val;
-                    }
-                }
-
-                const query: any = { where: find };
-                let element = await model.findOne(query);
-
-                if (!element) {
-                    const validation = validator.validateObject(data, validationObject, true);
-                    if (!validation.success) {
-                        response.error = validation.messages;
-                        response.success = false;
-                        response.message = validation.messages.join(', ');
-                        response.code = options?.customValidationCode || 435;
-                        response.data = {};
-                        res.status(response.code).json(response);
-                        return false;
-                    }
-                    element = await model.create(data);
-                } else {
-                    const validation = validator.validateObject(data, validationObject);
-                    if (!validation.success) {
-                        response.error = validation.messages;
-                        response.success = false;
-                        response.message = validation.messages.join(', ');
-                        response.code = options?.customValidationCode || 435;
-                        response.data = {};
-                        res.status(response.code).json(response);
-                        return false;
-                    }
-                }
-
-                for (const [key, value] of Object.entries(data)) {
-                    (element as any)[key] = value;
-                }
-
-                if (options?.updateFieldName) {
-                    (element as any)[options.updateFieldName] = moment().format();
-                }
-
-                await element.save();
-
-                query.where = {};
-                query.where[this.id_name] = (element as any)[this.id_name];
-
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-
-                element = await model.findOne(query);
-
-                if (fOut && typeof fOut === 'function') {
-                    const processedElement = await fOut(element as T);
-                    response.data = processedElement;
-                } else {
-                    response.data = element;
-                }
-
-                response.error = {};
-                response.success = true;
-                response.message = 'ok';
-                response.code = 200;
-                res.status(200).json(response);
-
-            } catch (e) {
-                response.error = e;
-                response.success = false;
-                response.message = e as string;
-                response.code = options?.customErrorCode || 500;
-                response.data = {};
-                res.status(response.code).json(response);
-                throw e;
-            }
-        };
-    }
-
-    /**
-     * This function helps to get an element by filtering parameters using where object from collection and updating if exist
-     */
-    findUpdate<T extends Model>(
-        model: typeof Model,
-        validationObject: ValidationObject,
-        populationObject: PopulationObject,
-        options?: ApiOptions,
-        fIn?: PreRequestHook,
-        fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
-            const response: ApiResponse = {
-                error: '',
-                success: false,
-                message: '',
-                code: 0,
-                data: {}
-            };
-
-            try {
-                if (fIn && typeof fIn === 'function') {
-                    req = await fIn(req);
-                }
-
-                const data = req.body;
-                const { populate, select, where, whereObject, like } = req.query;
-
-                const processedWhere = whereConstructor(where);
-                const processedLike = whereConstructor(like);
-
-                const validation = validator.validateObject(data, validationObject);
-                if (!validation.success) {
-                    response.error = validation.messages;
-                    response.success = false;
-                    response.message = validation.messages.join(', ');
-                    response.code = options?.customValidationCode || 435;
-                    response.data = {};
-                    res.status(response.code).json(response);
-                    return false;
-                }
-
-                const find: any = {};
-                if (processedLike) {
-                    for (const [key, val] of Object.entries(processedLike)) {
-                        find[key] = { [Op.like]: `%${val}%` };
-                    }
-                }
-                if (processedWhere) {
-                    for (const [key, val] of Object.entries(processedWhere)) {
-                        find[key] = val;
-                    }
-                }
-                if (whereObject) {
-                    for (const [key, val] of Object.entries(whereObject)) {
-                        find[key] = val;
-                    }
-                }
-
-                const query: any = { where: find };
-                let element = await model.findOne(query);
-
-                if (!element) {
-                    response.error = '404 not found';
-                    response.success = false;
-                    response.message = validation.messages.join(', ');
-                    response.code = options?.customNotFoundCode || 404;
-                    response.data = {};
-                    res.status(response.code).json(response);
-                    return false;
-                }
-
-                for (const [key, value] of Object.entries(data)) {
-                    (element as any)[key] = value;
-                }
-
-                if (options?.updateFieldName) {
-                    (element as any)[options.updateFieldName] = moment().format();
-                }
-
-                await element.save();
-
-                query.where = {};
-                query.where[this.id_name] = (element as any)[this.id_name];
-
-                populateConstructor(query, populate, populationObject);
-                selectConstructor(query, select);
-
-                element = await model.findOne(query);
-
-                if (fOut && typeof fOut === 'function') {
-                    const processedElement = await fOut(element as T);
-                    response.data = processedElement;
-                } else {
-                    response.data = element;
-                }
-
-                response.error = {};
-                response.success = true;
-                response.message = 'ok';
-                response.code = 200;
-                res.status(200).json(response);
-
-            } catch (e) {
-                response.error = e;
-                response.success = false;
-                response.message = e as string;
-                response.code = options?.customErrorCode || 500;
-                response.data = {};
-                res.status(response.code).json(response);
-                throw e;
-            }
-        };
-    }
-
-    /**
-     * This function helps to get an element by id from collection and updating if exist
+     * This function helps to update an element by id from collection
      */
     updateById<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         validationObject: ValidationObject,
         populationObject: PopulationObject,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: Request, res: Response) => {
             const response: ApiResponse = {
                 error: '',
                 success: false,
@@ -834,15 +505,13 @@ export class ApiatoSQL {
                     return false;
                 }
 
-                for (const [key, value] of Object.entries(body)) {
-                    (element as any)[key] = value;
-                }
+                await element.update(body);
 
                 if (options?.updateFieldName) {
-                    (element as any)[options.updateFieldName] = moment().format();
+                    await element.update({
+                        [options.updateFieldName]: moment().format()
+                    });
                 }
-
-                await element.save();
 
                 populateConstructor(query, populate, populationObject);
                 selectConstructor(query, select);
@@ -878,12 +547,12 @@ export class ApiatoSQL {
      * This function helps to delete an element by id
      */
     findIdAndDelete<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         options?: ApiOptions,
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<T>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: Request, res: Response) => {
             const response: ApiResponse = {
                 error: '',
                 success: false,
@@ -945,19 +614,19 @@ export class ApiatoSQL {
     }
 
     /**
-     * This function helps to get datatable data format using an aggregation
+     * This function helps to get datatable data format
      */
     datatable_aggregate<T extends Model>(
-        model: typeof Model,
+        model: ModelStatic<Model>,
         populationObject: PopulationObject,
         search_fields: string | string[],
-        options: { search_by_field?: boolean } = {
+        options: { search_by_field: boolean } = {
             search_by_field: false
         },
         fIn?: PreRequestHook,
         fOut?: PostResponseHook<any>
-    ): SequelizeRequestHandler {
-        return async (req, res) => {
+    ) {
+        return async (req: Request, res: Response) => {
             try {
                 const response = {
                     message: 'OK',
@@ -996,4 +665,84 @@ export class ApiatoSQL {
                 }
                 query.order = order;
 
-                const OR__: any[] = options.search_by_field ? search
+                let OR__: any[] = [];
+                if (options.search_by_field) {
+                    OR__ = search_columns_or;
+                }
+
+                let fields: string[] = [];
+                if (search_fields) {
+                    if (typeof search_fields === 'string' && search_fields !== '') {
+                        fields = search_fields.split(',');
+                    }
+                    if (Array.isArray(search_fields)) {
+                        fields = search_fields;
+                    }
+                }
+
+                if (fields.length > 0 && body?.search?.value) {
+                    for (const item of fields) {
+                        const inner: any = {};
+                        if (isNaN(Number(body.search.value))) {
+                            inner[item] = { [Op.like]: `%${body.search.value}%` };
+                            OR__.push(inner);
+                        } else {
+                            inner[item] = Number(body.search.value);
+                            OR__.push(inner);
+                        }
+                    }
+                    query.where = { [Op.or]: OR__ };
+                }
+
+                if (like) {
+                    for (const [key, val] of Object.entries(like)) {
+                        query.where[key] = { [Op.like]: `%${val}%` };
+                    }
+                }
+                if (where) {
+                    for (const [key, val] of Object.entries(where)) {
+                        query.where[key] = val;
+                    }
+                }
+                if (whereObject) {
+                    for (const [key, val] of Object.entries(whereObject)) {
+                        query.where[key] = val;
+                    }
+                }
+
+                const query2 = { ...query };
+
+                const table = await model.findAll(query);
+                const total = table.length;
+
+                query2.limit = Number(body?.length || 0);
+                query2.offset = Number(body?.start || 0);
+
+                const table2 = await model.findAll(query2);
+
+                response.data = table2;
+                response.recordsTotal = total;
+                response.recordsFiltered = total;
+                response.total = total;
+
+                if (fOut && typeof fOut === 'function') {
+                    const processedResponse = await fOut(response);
+                    res.status(200).json(processedResponse);
+                } else {
+                    res.status(200).json(response);
+                }
+
+            } catch (e) {
+                const response: ApiResponse = {
+                    error: e,
+                    success: false,
+                    message: e as string,
+                    code: 500,
+                    data: {}
+                };
+                res.status(500).json(response);
+                throw e;
+            }
+        };
+    }
+}

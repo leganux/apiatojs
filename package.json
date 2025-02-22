@@ -1,6 +1,6 @@
 {
   "name": "apiato",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "An amazing and easy to use CRUD  API-REST/SOCKETIO constructors for API with mongoDB(mongoose) and  SQL(sequelize)",
   "main": "index.js",
   "homepage": "htpps://leganux.net",
