@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import sequelize from './config/database';
 import User from './models/User';
-import { ApiatoSocket } from './lib/apiato-socket';
+import { ApiatoSocket } from 'apiato-typescript';
 
 const app = express();
 const httpServer = createServer(app);

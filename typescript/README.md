@@ -19,7 +19,7 @@ A powerful and flexible API library for Node.js that supports both SQL (Sequeliz
 ## Installation
 
 ```bash
-bun install apiato
+bun install apiato-typescript
 ```
 
 ## Examples
@@ -62,7 +62,7 @@ bun run dev
 ### REST API with Sequelize
 
 ```typescript
-import { ApiatoSQL } from 'apiato/typescript';
+import { ApiatoSQL } from 'apiato-typescript';
 import User from './models/User';
 
 const apiato = new ApiatoSQL();
@@ -78,7 +78,7 @@ router.delete('/:id', apiato.findIdAndDelete(User));
 ### REST API with Mongoose
 
 ```typescript
-import { ApiatoNoSQL } from 'apiato/typescript';
+import { ApiatoNoSQL } from 'apiato-typescript';
 import User from './models/User';
 
 const apiato = new ApiatoNoSQL();
@@ -94,7 +94,7 @@ router.delete('/:id', apiato.findIdAndDelete(User));
 ### Socket.IO with Sequelize/Mongoose
 
 ```typescript
-import { ApiatoSocket } from 'apiato/typescript';
+import { ApiatoSocket } from 'apiato-typescript';
 import { Server } from 'socket.io';
 import User from './models/User';
 

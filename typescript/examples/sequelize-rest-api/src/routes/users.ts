@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { ApiatoNoSQL } from '../lib/apiato';
+import { ApiatoSQL } from 'apiato-typescript';
 import User from '../models/User';
 
 const router = Router();
-const apiato = new ApiatoNoSQL({ hideLogo: true });
+const apiato = new ApiatoSQL('id', { hideLogo: true });
 
 // Validation schema for User model
 const userValidation = {
