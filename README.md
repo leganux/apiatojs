@@ -1237,6 +1237,430 @@ let populate = {
 
 <hr>
 
+## Socket.IO Support
+
+APIATO now provides Socket.IO support for real-time bidirectional communication. This implementation allows you to perform CRUD operations through WebSocket connections instead of HTTP requests.
+
+### Socket.IO Installation
+
+```bash
+npm install socket.io @types/socket.io
+```
+
+### Socket.IO Usage
+
+The Socket.IO implementation provides the same CRUD operations as the REST API but through WebSocket events. Each operation has its corresponding event and response event. Both NoSQL (MongoDB) and SQL databases are supported.
+
+**Authorization Middleware**
+You can provide a middleware function to handle authorization for socket operations. The middleware receives information about the operation, model, and data:
+```typescript
+interface MiddlewareParams {
+  operation: string;  // The operation being performed (e.g., 'create', 'update', etc.)
+  model: string;      // The model name (e.g., 'User', 'Employee', etc.)
+  data: any;         // The request data including body, query, etc.
+  socket: Socket;    // The socket instance for accessing auth data
+}
+
+// Example middleware function
+const authMiddleware = async (params: MiddlewareParams) => {
+  const { operation, model, data, socket } = params;
+  
+  // Get auth token from socket
+  const token = socket.handshake.auth.token;
+  
+  // Example: Check if user has permission for this operation on this model
+  const user = await verifyToken(token);
+  if (!user) return false;
+  
+  // Check specific permissions
+  switch (operation) {
+    case 'create':
+      return user.canCreate(model);
+    case 'update':
+      return user.canUpdate(model, data._id);
+    case 'delete':
+      return user.canDelete(model, data._id);
+    default:
+      return user.canRead(model);
+  }
+};
+
+// Initialize with middleware
+const socketApiato = new ApiatoSocket(io, YourMongooseModel, authMiddleware);
+// Or for SQL
+const socketApiato = new ApiatoSocketSQL(io, YourSequelizeModel, '_id', authMiddleware);
+
+// If no middleware is provided, all operations will be allowed
+```
+
+**Request Tags**
+You can include a tag in your requests to match responses with their corresponding requests:
+```javascript
+// Send request with tag
+socket.emit('create', JSON.stringify({
+  tag: 'create_user_123',  // Any alphanumeric string
+  body: {
+    name: 'John Doe',
+    age: 30
+  }
+}));
+
+// Response will include the same tag
+socket.on('create:response', (response) => {
+  console.log(response.tag); // 'create_user_123'
+  // Use the tag to match the response with your request
+});
+
+// Example with middleware and tag
+socket.emit('update', JSON.stringify({
+  tag: 'update_user_456',
+  responseType: 'room',
+  room: 'users',
+  _id: 'user_id',
+  body: { status: 'active' }
+}));
+
+socket.on('update:response', (response) => {
+  if (response.tag === 'update_user_456') {
+    if (response.error === 'Unauthorized access') {
+      // Handle unauthorized access
+    } else {
+      // Handle successful update
+    }
+  }
+});
+```
+
+**NoSQL (MongoDB) Usage**
+```typescript
+import { Server } from 'socket.io';
+import { ApiatoSocket } from './no-sql/apiato-socket';
+
+// Initialize Socket.IO with your HTTP server
+const io = new Server(httpServer);
+
+// Initialize ApiatoSocket with your Mongoose model
+const socketApiato = new ApiatoSocket(io, YourMongooseModel);
+```
+
+**SQL Usage**
+```typescript
+import { Server } from 'socket.io';
+import { ApiatoSocketSQL } from './sql/apiato-socket';
+
+// Initialize Socket.IO with your HTTP server
+const io = new Server(httpServer);
+
+// Initialize ApiatoSocketSQL with your Sequelize model
+// The third parameter is the primary key field name (defaults to '_id')
+const socketApiato = new ApiatoSocketSQL(io, YourSequelizeModel, '_id');
+
+// Example with a different primary key field
+const socketApiato = new ApiatoSocketSQL(io, UserModel, 'id');
+```
+
+**Query Parameters**
+Both SQL and NoSQL implementations support the same query parameters for filtering, sorting, and pagination:
+
+```javascript
+// Where conditions
+socket.emit('getMany', JSON.stringify({
+  query: {
+    where: {
+      name: 'John',
+      age: 30
+    }
+  }
+}));
+
+// Where with ObjectId (MongoDB only)
+socket.emit('getMany', JSON.stringify({
+  query: {
+    whereObject: {
+      user_id: '60e243c82b4d320571d00639'
+    }
+  }
+}));
+
+// Like conditions (partial match)
+socket.emit('getMany', JSON.stringify({
+  query: {
+    like: {
+      name: 'Jo'  // Will match 'John', 'Joe', etc.
+    }
+  }
+}));
+
+// Pagination
+socket.emit('getMany', JSON.stringify({
+  query: {
+    paginate: {
+      page: 1,
+      limit: 10
+    }
+  }
+}));
+
+// Sorting
+socket.emit('getMany', JSON.stringify({
+  query: {
+    sort: {
+      name: 'ASC',
+      age: 'DESC'
+    }
+  }
+}));
+
+// Select specific fields
+socket.emit('getMany', JSON.stringify({
+  query: {
+    select: {
+      name: 1,
+      age: 1,
+      location: 0
+    }
+  }
+}));
+
+// Populate related fields
+socket.emit('getMany', JSON.stringify({
+  query: {
+    populate: {
+      user: 1,
+      comments: 1
+    }
+  }
+}));
+
+// Combine multiple parameters
+socket.emit('getMany', JSON.stringify({
+  query: {
+    where: { age: { $gt: 18 } },
+    like: { name: 'Jo' },
+    paginate: { page: 1, limit: 10 },
+    sort: { name: 'ASC' },
+    select: { name: 1, age: 1 },
+    populate: { user: 1 }
+  }
+}));
+```
+
+**Response Types**
+For both SQL and NoSQL implementations, you can control how responses are delivered:
+```javascript
+// Private response (default)
+socket.emit('create', JSON.stringify({
+  responseType: 'private',
+  body: { /* your data */ }
+}));
+
+// Broadcast to all clients
+socket.emit('update', JSON.stringify({
+  responseType: 'broadcast',
+  _id: 'record_id',
+  body: { /* your data */ }
+}));
+
+// Send to specific room
+socket.emit('delete', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  _id: 'record_id'
+}));
+```
+
+**Room Management**
+Both implementations support room management:
+```javascript
+// Join a room
+socket.emit('join:room', 'room1');
+
+// Leave a room
+socket.emit('leave:room', 'room1');
+
+// Send operation to specific room
+socket.emit('create', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  body: { /* your data */ }
+}));
+```
+
+### Available Socket Events
+
+Each event emits a response event with the suffix `:response`. You can control how responses are delivered using the `responseType` parameter:
+- `private` (default): Response sent only to the requesting client
+- `broadcast`: Response sent to all connected clients
+- `room`: Response sent to all clients in a specific room
+
+**Room Management**
+```javascript
+// Join a room
+socket.emit('join:room', 'room1');
+socket.on('join:room:response', (response) => {
+  console.log(response); // { data: { room: 'room1' }, message: 'Joined room: room1', ... }
+});
+
+// Leave a room
+socket.emit('leave:room', 'room1');
+socket.on('leave:room:response', (response) => {
+  console.log(response); // { data: { room: 'room1' }, message: 'Left room: room1', ... }
+});
+```
+
+**Create**
+```javascript
+// Private response (default)
+socket.emit('create', JSON.stringify({
+  responseType: 'private', // or omit for default private response
+  body: {
+    name: 'John Doe',
+    age: 30
+  }
+}));
+
+// Broadcast to all clients
+socket.emit('create', JSON.stringify({
+  responseType: 'broadcast',
+  body: {
+    name: 'John Doe',
+    age: 30
+  }
+}));
+
+// Send to specific room
+socket.emit('create', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  body: {
+    name: 'John Doe',
+    age: 30
+  }
+}));
+
+// Client listen
+socket.on('create:response', (response) => {
+  console.log(response);
+  // {
+  //   data: { created document },
+  //   message: 'Created successfully',
+  //   success: true,
+  //   error: null
+  // }
+});
+```
+
+**Read**
+```javascript
+// Private response
+socket.emit('read', JSON.stringify({
+  responseType: 'private',
+  query: { age: 30 },
+  options: { sort: { name: 1 } }
+}));
+
+// Broadcast result to all clients
+socket.emit('read', JSON.stringify({
+  responseType: 'broadcast',
+  query: { age: 30 },
+  options: { sort: { name: 1 } }
+}));
+
+// Send result to specific room
+socket.emit('read', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  query: { age: 30 },
+  options: { sort: { name: 1 } }
+}));
+
+// Client listen
+socket.on('read:response', (response) => {
+  console.log(response);
+  // {
+  //   data: [ documents ],
+  //   message: 'Retrieved successfully',
+  //   success: true,
+  //   error: null
+  // }
+});
+```
+
+**Update**
+```javascript
+// Private response
+socket.emit('update', JSON.stringify({
+  responseType: 'private',
+  _id: 'document_id',
+  body: {
+    name: 'Jane Doe'
+  }
+}));
+
+// Broadcast update to all clients
+socket.emit('update', JSON.stringify({
+  responseType: 'broadcast',
+  _id: 'document_id',
+  body: {
+    name: 'Jane Doe'
+  }
+}));
+
+// Send update to specific room
+socket.emit('update', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  _id: 'document_id',
+  body: {
+    name: 'Jane Doe'
+  }
+}));
+
+// Client listen
+socket.on('update:response', (response) => {
+  console.log(response);
+  // {
+  //   data: { updated document },
+  //   message: 'Updated successfully',
+  //   success: true,
+  //   error: null
+  // }
+});
+```
+
+**Delete**
+```javascript
+// Private response
+socket.emit('delete', JSON.stringify({
+  responseType: 'private',
+  _id: 'document_id'
+}));
+
+// Broadcast deletion to all clients
+socket.emit('delete', JSON.stringify({
+  responseType: 'broadcast',
+  _id: 'document_id'
+}));
+
+// Send deletion notification to specific room
+socket.emit('delete', JSON.stringify({
+  responseType: 'room',
+  room: 'room1',
+  _id: 'document_id'
+}));
+
+// Client listen
+socket.on('delete:response', (response) => {
+  console.log(response);
+  // {
+  //   data: { deleted document },
+  //   message: 'Deleted successfully',
+  //   success: true,
+  //   error: null
+  // }
+});
+```
+
 ## TypeScript Support
 
 APIATO also provides full TypeScript support with type definitions for both SQL and NoSQL databases. The TypeScript version provides better type safety and enhanced IDE support.
